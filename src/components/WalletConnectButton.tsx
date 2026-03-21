@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { useState } from "react";
 
 import { WalletDetailSheet } from "@/components/WalletDetailSheet";
 import { WalletStatusIcon } from "@/components/WalletStatusIcon";
@@ -32,7 +32,7 @@ export function WalletConnectButton({
                 connected ? setAccountOpen(true) : openConnectModal()
               }
               className={cn(
-                "transition-colors disabled:opacity-40",
+                "cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-40",
                 variant === "mobile" &&
                   "flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-1 py-2",
                 variant === "desktop" &&
