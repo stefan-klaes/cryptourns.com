@@ -2,6 +2,7 @@
 
 import type { LucideIcon } from "lucide-react";
 import { Box, CirclePlus, Newspaper } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -9,22 +10,22 @@ import { MobileNavMenu } from "@/components/MobileNavMenu";
 import { WalletConnectButton } from "@/components/WalletConnectButton";
 import { cn } from "@/lib/utils";
 
-const NAV_ITEMS: readonly {
-  href: string;
-  label: string;
-  icon: LucideIcon;
-}[] = [
+const NAV_ITEMS = [
   { href: "/urns", label: "Urns", icon: Box },
   { href: "/mint", label: "Mint", icon: CirclePlus },
   { href: "/feed", label: "Feed", icon: Newspaper },
-];
+] as const satisfies readonly {
+  href: Route;
+  label: string;
+  icon: LucideIcon;
+}[];
 
 function NavLink({
   href,
   label,
   className,
 }: {
-  href: string;
+  href: Route;
   label: string;
   className?: string;
 }) {
@@ -50,7 +51,7 @@ function MobileTabLink({
   label,
   icon: Icon,
 }: {
-  href: string;
+  href: Route;
   label: string;
   icon: LucideIcon;
 }) {

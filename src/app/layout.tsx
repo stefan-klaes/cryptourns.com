@@ -39,7 +39,7 @@ export default function RootLayout({
         roboto.variable,
       )}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col dark">
         <Web3Provider>
           <Navigation />
           <div className="flex min-h-0 flex-1 flex-col pt-14 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">

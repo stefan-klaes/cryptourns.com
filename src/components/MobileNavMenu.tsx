@@ -1,6 +1,7 @@
 "use client";
 
 import { Menu } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 import * as React from "react";
 
@@ -15,7 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 
 export type MobileNavMenuLink = {
-  href: string;
+  href: Route;
   label: string;
 };
 
