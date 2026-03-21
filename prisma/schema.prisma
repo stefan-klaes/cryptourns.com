@@ -1,0 +1,47 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum AssetType {
+  ERC721
+  ERC1155
+  ERC20
+}
+
+model Candle {
+  urnId     Int
+  address   String
+  createdAt DateTime @default(now())
+
+  metadata Metadata @relation(fields: [urnId], references: [urnId], onDelete: Cascade)
+
+  @@id([urnId, address])
+  @@index([urnId])
+}
+
+model Asset {
+  id        Int       @id @default(autoincrement())
+  urnId     Int
+  type      AssetType
+  quantity  Int
+  createdAt DateTime  @default(now())
+
+  metadata Metadata @relation(fields: [urnId], references: [urnId], onDelete: Cascade)
+
+  @@index([urnId])
+}
+
+model Metadata {
+  urnId     Int      @unique
+  tba       String   @unique  
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  candles Candle[]
+  assets  Asset[]
+}
