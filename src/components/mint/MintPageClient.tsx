@@ -9,7 +9,7 @@ import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { AddressList } from "@/components/mint/AddressList";
 import { MintProgressDialog } from "@/components/mint/MintProgressDialog";
 import { PriceSummary } from "@/components/mint/PriceSummary";
-import { UrnPreview } from "@/components/mint/UrnPreview";
+import { UrnRenderer } from "@/components/mint/UrnRenderer";
 import { Button } from "@/components/ui/button";
 import { useMint } from "@/hooks/useMint";
 import { useMintPrice } from "@/hooks/useMintPrice";
@@ -53,7 +53,7 @@ export function MintPageClient() {
     <>
       <div className="grid grid-cols-1 items-start gap-8 md:grid-cols-2">
         {/* Left column — Preview */}
-        <UrnPreview className="mx-auto w-full max-w-xs md:max-w-none" />
+        <UrnRenderer assetCount={0} candleCount={0} className="mx-auto w-full max-w-xs md:max-w-none" />
 
         {/* Right column — Mint form */}
         <div className="space-y-6">
