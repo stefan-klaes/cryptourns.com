@@ -6,6 +6,7 @@ import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { CryptournLogo } from "@/components/CryptournLogo";
 import { MobileNavMenu } from "@/components/MobileNavMenu";
 import { WalletConnectButton } from "@/components/WalletConnectButton";
 import { cn } from "@/lib/utils";
@@ -88,9 +89,10 @@ export function Navigation() {
       <div className="mx-auto hidden h-14 max-w-6xl items-center justify-between gap-6 px-4 md:flex">
         <Link
           href="/"
-          className="text-sm font-semibold tracking-tight text-foreground"
+          className="flex shrink-0 items-center gap-2 text-foreground transition-opacity hover:opacity-90"
         >
-          Cryptourns
+          <CryptournLogo className="size-6" />
+          <span className="text-sm font-semibold tracking-tight">Cryptourns</span>
         </Link>
         <div className="flex flex-1 items-center justify-center gap-8">
           {NAV_ITEMS.map(({ href, label }) => (

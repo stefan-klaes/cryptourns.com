@@ -5,6 +5,7 @@ import type { Route } from "next";
 import Link from "next/link";
 import * as React from "react";
 
+import { CryptournLogo } from "@/components/CryptournLogo";
 import {
   Drawer,
   DrawerClose,
@@ -52,7 +53,22 @@ export function MobileNavMenu({ links }: MobileNavMenuProps) {
       </DrawerTrigger>
       <DrawerContent>
         <DrawerHeader className="text-left">
-          <DrawerTitle>Menü</DrawerTitle>
+          <div className="flex flex-col gap-2">
+            <DrawerClose asChild>
+              <Link
+                href="/"
+                className="flex items-center gap-3 rounded-md outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <CryptournLogo className="size-7 shrink-0" />
+                <span className="text-base font-semibold tracking-tight text-foreground">
+                  Cryptourns
+                </span>
+              </Link>
+            </DrawerClose>
+            <DrawerTitle className="text-sm font-medium text-muted-foreground">
+              Menü
+            </DrawerTitle>
+          </div>
         </DrawerHeader>
         <nav className="flex flex-col gap-1 px-4 pb-8" aria-label="Menü">
           <DrawerClose asChild>
