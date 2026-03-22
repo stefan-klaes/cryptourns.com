@@ -18,13 +18,14 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useMint } from "@/hooks/useMint";
-import { useMintPrice } from "@/hooks/useMintPrice";
+import { useCryptourns } from "@/providers/CryptournsProvider";
 
 export function MintPageClient() {
   const router = useRouter();
   const { address, isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
-  const { price, formatted } = useMintPrice();
+  const { mintPriceWei, formattedMintPrice, totalSupply, loading: cryptournsLoading } =
+    useCryptourns();
   const { step, isOpen, mint, reset } = useMint();
 
   const [manualAddresses, setManualAddresses] = useState<Address[]>([]);
@@ -144,6 +145,18 @@ export function MintPageClient() {
             <p className="mt-1 text-sm text-muted-foreground">
               Mint unique on-chain urns to your wallet or gift them to others.
             </p>
+            <p className="mt-2 text-sm tabular-nums text-muted-foreground">
+              {cryptournsLoading ? (
+                <span className="inline-block h-4 w-28 animate-pulse rounded bg-muted" />
+              ) : (
+                <>
+                  <span className="font-medium text-foreground">
+                    {totalSupply.toLocaleString()}
+                  </span>{" "}
+                  {totalSupply === 1 ? "urn" : "urns"} minted
+                </>
+              )}
+            </p>
           </div>
 
           {isConnected ? (
@@ -169,8 +182,8 @@ export function MintPageClient() {
           )}
 
           <PriceSummary
-            pricePerUnit={price}
-            formattedPrice={formatted}
+            pricePerUnit={mintPriceWei}
+            formattedPrice={formattedMintPrice}
             count={Math.max(addresses.length, 1)}
           />
 

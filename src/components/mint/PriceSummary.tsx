@@ -34,7 +34,7 @@ export function PriceSummary({
           <span className="text-sm font-medium text-foreground">Total</span>
           <span className="flex items-center gap-1.5 font-semibold tabular-nums text-foreground">
             <EthereumLogo aria-hidden className="size-3.5 shrink-0 fill-current" />
-            {formatEthereum(total, 2)} ETH
+            {formatEthereum(total, 4)} ETH
           </span>
         </div>
       </div>
