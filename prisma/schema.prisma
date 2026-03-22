@@ -18,27 +18,31 @@ model Candle {
   address   String
   createdAt DateTime @default(now())
 
-  metadata Metadata @relation(fields: [urnId], references: [urnId], onDelete: Cascade)
+  urn Urn @relation(fields: [urnId], references: [id], onDelete: Cascade)
 
   @@id([urnId, address])
   @@index([urnId])
 }
 
 model Asset {
-  id        Int       @id @default(autoincrement())
-  urnId     Int
-  type      AssetType
-  quantity  Int
-  createdAt DateTime  @default(now())
+  id               Int       @id @default(autoincrement())
+  urnId            Int
+  contractAddress  String
+  tokenId          String
+  type             AssetType
+  quantity         Int
+  createdAt        DateTime  @default(now())
 
-  metadata Metadata @relation(fields: [urnId], references: [urnId], onDelete: Cascade)
+  urn Urn @relation(fields: [urnId], references: [id], onDelete: Cascade)
 
+  @@unique([urnId, contractAddress, tokenId])
   @@index([urnId])
 }
 
-model Metadata {
-  urnId     Int      @unique
-  tba       String   @unique  
+model Urn {
+  id        Int      @id
+  tba       String   @unique
+  cracked   Boolean  @default(false)
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
 
