@@ -1,14 +1,11 @@
 "use client";
 
 import { createContext, useContext, type ReactNode } from "react";
-import type { Address } from "viem";
 import { formatEther } from "viem";
 import { useReadContracts } from "wagmi";
 
 import { CRYPTOURNS_CONTRACT } from "@/lib/contract/cryptourns.contract";
 import { formatEthereum } from "@/lib/utils/formatEthereum";
-
-const contractAddress = CRYPTOURNS_CONTRACT.contractAddress as Address;
 
 interface CryptournsContextType {
   totalSupply: number;
@@ -53,7 +50,7 @@ export function CryptournsProvider({ children }: CryptournsProviderProps) {
   const [totalSupplyRaw, mintPriceRaw] = data ?? [];
 
   const totalSupply = Number(totalSupplyRaw?.result ?? 0);
-  const mintPriceWei = (mintPriceRaw?.result ?? BigInt(0)) as bigint;
+  const mintPriceWei = mintPriceRaw?.result ?? BigInt(0);
   const mintPrice = Number(formatEther(mintPriceWei));
   const formattedMintPrice = formatEthereum(mintPriceWei, 4);
 

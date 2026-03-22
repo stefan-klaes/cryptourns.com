@@ -1,7 +1,6 @@
 "use client";
 
 import { useConnectModal } from "@rainbow-me/rainbowkit";
-import { Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Address } from "viem";
@@ -12,11 +11,6 @@ import { MintProgressDialog } from "@/components/mint/MintProgressDialog";
 import { PriceSummary } from "@/components/mint/PriceSummary";
 import { UrnRenderer } from "@/components/mint/UrnRenderer";
 import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { useMint } from "@/hooks/useMint";
 import { useCryptourns } from "@/providers/CryptournsProvider";
 
@@ -32,16 +26,13 @@ export function MintPageClient() {
   const [hiddenConnectedAddress, setHiddenConnectedAddress] = useState<
     string | null
   >(null);
-  const [previewKey, setPreviewKey] = useState(0);
-
+  /**
+   * Random mosaic after mount only — avoids SSR/client UUID mismatch (hydration error).
+   * First paint uses UrnRenderer’s useId(); then we swap to a per-session seed.
+   */
+  const [emptyMosaicSeed, setEmptyMosaicSeed] = useState<string | null>(null);
   useEffect(() => {
-    let steps = 0;
-    const id = window.setInterval(() => {
-      setPreviewKey((k) => k + 1);
-      steps += 1;
-      if (steps >= 4) window.clearInterval(id);
-    }, 300);
-    return () => window.clearInterval(id);
+    setEmptyMosaicSeed(crypto.randomUUID());
   }, []);
   const connectedAddressNormalized = address?.toLowerCase() ?? null;
   const addresses = useMemo(() => {
@@ -107,32 +98,14 @@ export function MintPageClient() {
             <UrnRenderer
               assetCount={0}
               candleCount={0}
-              seed={`mint-${previewKey}`}
+              seed={emptyMosaicSeed ?? undefined}
               className="w-full"
             />
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute bottom-2 left-2 z-10 size-9 text-primary shadow-sm ring-2 ring-primary/25 animate-[pulse_2.2s_ease-in-out_infinite] hover:animate-none hover:bg-primary/10 hover:text-primary"
-                    aria-label="Generate a new random preview"
-                    onClick={() => setPreviewKey((k) => k + 1)}
-                  >
-                    <Sparkles data-icon="inline-start" aria-hidden />
-                  </Button>
-                }
-              />
-              <TooltipContent side="top" align="start">
-                Generate a new random color preview
-              </TooltipContent>
-            </Tooltip>
           </div>
           <p className="text-center text-xs leading-relaxed text-primary md:text-left">
-            Colors are randomly generated at mint—your urn&apos;s palette is
-            revealed on-chain when you mint.
+            New urns start as neutral grey stone. Sending the first NFT or
+            tokens into the urn&apos;s account reveals its unique on-chain
+            palette.
           </p>
         </div>
 

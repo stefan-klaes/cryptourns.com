@@ -42,6 +42,24 @@ function hashStringToSeed(value: string) {
   return hash >>> 0;
 }
 
+/** Subtle per-cell noise for empty urn greys (keeps mosaic texture without big swings). */
+function emptyMosaicNoise(
+  paletteSeed: number,
+  layer: "urn" | "sockel",
+  x: number,
+  y: number,
+) {
+  const n = hashStringToSeed(`${layer}:${paletteSeed}:${x}:${y}`);
+  const a = (n & 1023) / 1023;
+  const b = ((n >>> 10) & 1023) / 1023;
+  const c = ((n >>> 20) & 1023) / 1023;
+  return {
+    h: (a - 0.5) * 2.5,
+    s: (b - 0.5) * 3,
+    l: (c - 0.5) * 1.8,
+  };
+}
+
 function mulberry32(seed: number) {
   return function () {
     seed |= 0;
@@ -51,6 +69,23 @@ function mulberry32(seed: number) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
+
+/** 2D-mix seed so each grid cell gets its own uncorrelated PRNG (avoids axis banding). */
+function mixSeedXY(seed: number, x: number, y: number) {
+  let h =
+    (seed ^ Math.imul(x + 1, 0x1b873593) ^ Math.imul(y + 1, 0xe6546b64)) >>>
+    0;
+  h = Math.imul(h ^ (h >>> 16), 2246822519) >>> 0;
+  h = Math.imul(h ^ (h >>> 13), 3266489917) >>> 0;
+  return (h ^ (h >>> 16)) >>> 0;
+}
+
+const EMPTY_PALETTE = {
+  urnHue: 220,
+  urnSat: 11,
+  pedestalHue: 218,
+  pedestalSat: 10,
+} as const;
 
 interface UrnRendererProps {
   assetCount: number;
@@ -71,48 +106,103 @@ export function UrnRenderer({
   const svgContent = useMemo(() => {
     type CellType = "transparent" | "urn" | "sockel" | "candles";
 
-    const rng = mulberry32(hashStringToSeed(String(resolvedSeed)));
+    const isEmptyUrn = assetCount === 0 && candleCount === 0;
+    const paletteSeed = hashStringToSeed(String(resolvedSeed));
+    const rng = isEmptyUrn ? null : mulberry32(paletteSeed);
+    const shapeRng = !isEmptyUrn ? rng! : null;
+
+    let emptyBgBaseHue = 220;
+    let emptyBgBaseSat = 10;
+    if (isEmptyUrn) {
+      const h = hashStringToSeed(`empty-bg:${String(resolvedSeed)}`);
+      emptyBgBaseHue = (h % 24) + 210;
+      emptyBgBaseSat = 7 + ((h >>> 8) % 4);
+    }
+
     const size = 600;
     const cellSize = size / 60;
     const gridSize = 60;
+    const emptyBodyGradientT = isEmptyUrn
+      ? (() => {
+          const gh = hashStringToSeed(`empty-grad:${String(resolvedSeed)}`);
+          const angle = (gh / 4294967296) * Math.PI * 2;
+          const gx = Math.cos(angle);
+          const gy = Math.sin(angle);
+          const p0 = 0;
+          const p1 = gx;
+          const p2 = gy;
+          const p3 = gx + gy;
+          const gmin = Math.min(p0, p1, p2, p3);
+          const gmax = Math.max(p0, p1, p2, p3);
+          const denom = gmax - gmin || 1;
+          return (x: number, y: number) => {
+            const nx = x / (gridSize - 1);
+            const ny = y / (gridSize - 1);
+            return (nx * gx + ny * gy - gmin) / denom;
+          };
+        })()
+      : (_x: number, _y: number) => 0;
     const pixel = urnPixelArray();
 
-    const urnFamily =
-      URN_COLOR_FAMILIES[Math.floor(rng() * URN_COLOR_FAMILIES.length)];
-    const urnHue = randomBetween(rng, urnFamily.hueMin, urnFamily.hueMax);
-    const urnSaturation = randomBetween(rng, urnFamily.satMin, urnFamily.satMax);
-    const gradientMode = ["vertical", "horizontal", "angled"][
-      Math.floor(rng() * 3)
-    ] as "vertical" | "horizontal" | "angled";
-    const gradientAngle =
-      gradientMode === "vertical"
-        ? Math.PI / 2
-        : gradientMode === "horizontal"
-          ? 0
-          : randomBetween(rng, 0, Math.PI * 2);
-    const gradientVector = {
-      x: Math.cos(gradientAngle),
-      y: Math.sin(gradientAngle),
-    };
-    const projectionRange = [
-      { x: 0, y: 0 },
-      { x: 1, y: 0 },
-      { x: 0, y: 1 },
-      { x: 1, y: 1 },
-    ].map(({ x, y }) => x * gradientVector.x + y * gradientVector.y);
-    const minProjection = Math.min(...projectionRange);
-    const maxProjection = Math.max(...projectionRange);
-    const lightStart = randomBetween(rng, 56, 68);
-    const lightEnd = lightStart - randomBetween(rng, 18, 30);
-    const hueDrift = randomBetween(rng, -12, 12);
-    const saturationDrift = randomBetween(rng, -10, 10);
-    const backgroundHue = (urnHue + randomBetween(rng, -18, 18) + 360) % 360;
-    const backgroundSaturation = randomBetween(rng, 6, 16);
-    const pedestalHue = (urnHue + randomBetween(rng, -8, 8) + 360) % 360;
-    const pedestalSaturation = clamp(urnSaturation * randomBetween(rng, 0.35, 0.55), 12, 34);
-    const pedestalLightness = randomBetween(rng, 16, 24);
-    const candleHue = randomBetween(rng, 42, 58);
-    const isDarkUrnVariant = rng() < 0.5;
+    let gradientVector = { x: 0, y: 1 };
+    let minProjection = 0;
+    let maxProjection = 1;
+    let urnHue = 0;
+    let urnSaturation = 0;
+    let lightStart = 0;
+    let lightEnd = 0;
+    let hueDrift = 0;
+    let saturationDrift = 0;
+    let backgroundHue = 0;
+    let backgroundSaturation = 0;
+    let pedestalHue = 0;
+    let pedestalSaturation = 0;
+    let pedestalLightness = 0;
+    let candleHue = 0;
+    let isDarkUrnVariant = false;
+
+    if (rng) {
+      const urnFamily =
+        URN_COLOR_FAMILIES[Math.floor(rng() * URN_COLOR_FAMILIES.length)];
+      urnHue = randomBetween(rng, urnFamily.hueMin, urnFamily.hueMax);
+      urnSaturation = randomBetween(rng, urnFamily.satMin, urnFamily.satMax);
+      const gradientMode = ["vertical", "horizontal", "angled"][
+        Math.floor(rng() * 3)
+      ] as "vertical" | "horizontal" | "angled";
+      const gradientAngle =
+        gradientMode === "vertical"
+          ? Math.PI / 2
+          : gradientMode === "horizontal"
+            ? 0
+            : randomBetween(rng, 0, Math.PI * 2);
+      gradientVector = {
+        x: Math.cos(gradientAngle),
+        y: Math.sin(gradientAngle),
+      };
+      const projectionRange = [
+        { x: 0, y: 0 },
+        { x: 1, y: 0 },
+        { x: 0, y: 1 },
+        { x: 1, y: 1 },
+      ].map(({ x, y }) => x * gradientVector.x + y * gradientVector.y);
+      minProjection = Math.min(...projectionRange);
+      maxProjection = Math.max(...projectionRange);
+      lightStart = randomBetween(rng, 56, 68);
+      lightEnd = lightStart - randomBetween(rng, 18, 30);
+      hueDrift = randomBetween(rng, -12, 12);
+      saturationDrift = randomBetween(rng, -10, 10);
+      backgroundHue = (urnHue + randomBetween(rng, -18, 18) + 360) % 360;
+      backgroundSaturation = randomBetween(rng, 6, 16);
+      pedestalHue = (urnHue + randomBetween(rng, -8, 8) + 360) % 360;
+      pedestalSaturation = clamp(
+        urnSaturation * randomBetween(rng, 0.35, 0.55),
+        12,
+        34,
+      );
+      pedestalLightness = randomBetween(rng, 16, 24);
+      candleHue = randomBetween(rng, 42, 58);
+      isDarkUrnVariant = rng() < 0.5;
+    }
 
     const getGradientT = (x: number, y: number) => {
       const nx = x / (gridSize - 1);
@@ -121,47 +211,88 @@ export function UrnRenderer({
       return (projection - minProjection) / (maxProjection - minProjection);
     };
 
+    const getEmptyUrnBodyColor = (
+      x: number,
+      y: number,
+      mode: "body" | "rip" = "body",
+    ) => {
+      const tGrad = emptyBodyGradientT(x, y);
+      const tw = hashStringToSeed(`emptw:${paletteSeed}:${x}:${y}`);
+      const tWarp = (tw & 1023) / 1023;
+      const t = clamp(tGrad * 0.8 + tWarp * 0.2, 0, 1);
+      const isTopUrnRow = y === 3;
+      const noise = emptyMosaicNoise(paletteSeed, "urn", x, y);
+      let l =
+        56 - t * 11 + (isTopUrnRow ? -10 : 0) + noise.l + (1 - t) * 0.45;
+      let s = clamp(EMPTY_PALETTE.urnSat + (1 - t) * 1.2 + noise.s, 7, 16);
+      const h = (EMPTY_PALETTE.urnHue + noise.h + 360) % 360;
+      if (mode === "rip") {
+        l = clamp(l - 18, 18, 36);
+        s = clamp(s + 1.5, 8, 18);
+      } else {
+        l = clamp(l, 44, 58);
+      }
+      return toHsl({ h, s, l });
+    };
+
     const getUrnColor = (x: number, y: number) => {
+      if (isEmptyUrn) return getEmptyUrnBodyColor(x, y);
       const t = getGradientT(x, y);
       const isTopUrnRow = y === 3;
       const lightnessBase =
-        lightStart + (lightEnd - lightStart) * t + randomBetween(rng, -2.5, 2.5);
+        lightStart +
+        (lightEnd - lightStart) * t +
+        randomBetween(rng!, -2.5, 2.5);
       const saturationBase =
         urnSaturation +
         saturationDrift * (t - 0.5) +
-        randomBetween(rng, -4, 4);
+        randomBetween(rng!, -4, 4);
       const hueBase =
-        urnHue + hueDrift * (t - 0.5) + randomBetween(rng, -3, 3);
+        urnHue + hueDrift * (t - 0.5) + randomBetween(rng!, -3, 3);
       const variantLightness = isDarkUrnVariant
-        ? clamp(13 - t * 7 + randomBetween(rng, -1.5, 1.5), 3, 18)
-        : lightnessBase + randomBetween(rng, -1.5, 1.5);
+        ? clamp(13 - t * 7 + randomBetween(rng!, -1.5, 1.5), 3, 18)
+        : lightnessBase + randomBetween(rng!, -1.5, 1.5);
       const variantSaturation = isDarkUrnVariant
-        ? clamp(saturationBase * 0.68 + randomBetween(rng, -3, 3), 12, 52)
+        ? clamp(saturationBase * 0.68 + randomBetween(rng!, -3, 3), 12, 52)
         : clamp(saturationBase, 18, 90);
 
       return toHsl({
         h: (hueBase + 360) % 360,
         s: variantSaturation,
         l: clamp(
-          variantLightness + (isTopUrnRow ? (isDarkUrnVariant ? -6 : -16) : 0),
+          variantLightness +
+            (isTopUrnRow ? (isDarkUrnVariant ? -6 : -16) : 0),
           isDarkUrnVariant ? 2 : 14,
           isDarkUrnVariant ? 20 : 78,
         ),
       });
     };
 
-    const getBackgroundColor = () =>
-      toHsl({
-        h: (backgroundHue + randomBetween(rng, -4, 4) + 360) % 360,
-        s: clamp(backgroundSaturation + randomBetween(rng, -3, 3), 0, 24),
-        l: clamp(randomBetween(rng, 94, 99), 90, 100),
+    const getBackgroundColor = (x: number, y: number) => {
+      if (isEmptyUrn) {
+        const bgCellRng = mulberry32(mixSeedXY(paletteSeed, x, y));
+        return toHsl({
+          h: (emptyBgBaseHue + randomBetween(bgCellRng, -1.5, 1.5) + 360) % 360,
+          s: clamp(
+            emptyBgBaseSat + randomBetween(bgCellRng, -1.2, 1.2),
+            5,
+            14,
+          ),
+          l: clamp(randomBetween(bgCellRng, 93.5, 97.2), 92.5, 98),
+        });
+      }
+      return toHsl({
+        h: (backgroundHue + randomBetween(rng!, -4, 4) + 360) % 360,
+        s: clamp(backgroundSaturation + randomBetween(rng!, -3, 3), 0, 24),
+        l: clamp(randomBetween(rng!, 94, 99), 90, 100),
       });
+    };
 
     const getCandleColor = () =>
       toHsl({
-        h: (candleHue + randomBetween(rng, -7, 7) + 360) % 360,
-        s: clamp(randomBetween(rng, 76, 98), 0, 100),
-        l: clamp(randomBetween(rng, 44, 64), 0, 100),
+        h: (candleHue + randomBetween(rng!, -7, 7) + 360) % 360,
+        s: clamp(randomBetween(rng!, 76, 98), 0, 100),
+        l: clamp(randomBetween(rng!, 44, 64), 0, 100),
       });
 
     // Build pixel grid
@@ -202,6 +333,28 @@ export function UrnRenderer({
       const centerLift = 1 - Math.min(Math.abs(nx - 0.5) * 2, 1);
       const topLift = 1 - ny;
       const edgeShade = Math.abs(nx - 0.5) * 10;
+
+      if (isEmptyUrn) {
+        const noise = emptyMosaicNoise(paletteSeed, "sockel", x, y);
+        const baseL =
+          24 -
+          ny * 8 +
+          centerLift * 3 +
+          topLift * 2 -
+          edgeShade * 0.4 +
+          noise.l;
+        const s =
+          EMPTY_PALETTE.pedestalSat + centerLift * 1.8 - ny * 1.4 + noise.s;
+        if (variant === "text") {
+          return getEmptyUrnBodyColor(x, 3, "rip");
+        }
+        return toHsl({
+          h: (EMPTY_PALETTE.pedestalHue + noise.h * 0.35 + 360) % 360,
+          s: clamp(s, 7, 16),
+          l: clamp(baseL, 12, 26),
+        });
+      }
+
       const baseLightness =
         pedestalLightness + centerLift * 6 + topLift * 5 - edgeShade;
       const variantBaseLightness = isDarkUrnVariant
@@ -209,12 +362,12 @@ export function UrnRenderer({
         : baseLightness;
 
       return toHsl({
-        h: (pedestalHue + randomBetween(rng, -3, 3) + 360) % 360,
+        h: (pedestalHue + randomBetween(rng!, -3, 3) + 360) % 360,
         s: clamp(
           (isDarkUrnVariant
             ? urnSaturation * 0.72 + centerLift * 3 - ny * 2
             : pedestalSaturation + centerLift * 4 - ny * 4) +
-            randomBetween(rng, -2, 2),
+            randomBetween(rng!, -2, 2),
           isDarkUrnVariant ? 20 : 10,
           isDarkUrnVariant ? 60 : 38,
         ),
@@ -225,7 +378,7 @@ export function UrnRenderer({
                 ? -3
                 : -10
               : 0) +
-            randomBetween(rng, -1.5, 1.5),
+            randomBetween(rng!, -1.5, 1.5),
           variant === "text"
             ? isDarkUrnVariant
               ? 3
@@ -263,7 +416,7 @@ export function UrnRenderer({
       }
       // Fisher-Yates shuffle with seeded rng
       for (let i = freeCoordinates.length - 1; i > 0; i--) {
-        const j = Math.floor(rng() * (i + 1));
+        const j = Math.floor(rng!() * (i + 1));
         [freeCoordinates[i], freeCoordinates[j]] = [
           freeCoordinates[j],
           freeCoordinates[i],
@@ -284,13 +437,13 @@ export function UrnRenderer({
       }
     }
 
-    // RIP text positions
     const ripPositions: boolean[][] = Array.from({ length: 61 }, () =>
       Array(61).fill(false),
     );
     for (const r in RIP_TEXT_COORDS) {
-      for (const col of RIP_TEXT_COORDS[r]) {
-        ripPositions[r as unknown as number][col] = true;
+      const row = Number(r);
+      for (const col of RIP_TEXT_COORDS[row]) {
+        ripPositions[row][col] = true;
       }
     }
 
@@ -350,12 +503,14 @@ export function UrnRenderer({
     for (let y = 0; y < gridSize; y++) {
       for (let x = 0; x < gridSize; x++) {
         const cell = pixelGrid[y + 1][x + 1];
-        const shapeId = Math.floor(rng() * 3);
+        const shapeId = isEmptyUrn
+          ? hashStringToSeed(`shape:${paletteSeed}:${x}:${y}`) % 3
+          : Math.floor(shapeRng!() * 3);
         const px = x * cellSize;
         const py = y * cellSize;
 
         if (cell === "transparent") {
-          const color = fullCandleBg ? getCandleColor() : getBackgroundColor();
+          const color = fullCandleBg ? getCandleColor() : getBackgroundColor(x, y);
           backgroundPixels.push(
             `<use href="#p${shapeId}" x="${px}" y="${py}" fill="${color}"/>`,
           );
@@ -376,7 +531,6 @@ export function UrnRenderer({
           );
         }
 
-        // RIP text overlay
         if (ripPositions[y + 1][x + 1]) {
           const color = getPedestalColor(x, y, "text");
           ripTextPixels.push(
@@ -397,7 +551,7 @@ export function UrnRenderer({
     const svgStr = [
       `<svg width="100%" height="100%" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">`,
       `<defs>${defs.join("")}</defs>`,
-      `<rect width="100%" height="100%" fill="${toHsl({ h: backgroundHue, s: 10, l: 96 })}"/>`,
+      `<rect width="100%" height="100%" fill="${isEmptyUrn ? toHsl({ h: emptyBgBaseHue, s: clamp(emptyBgBaseSat * 0.92, 6, 11), l: 94.5 }) : toHsl({ h: backgroundHue, s: 10, l: 96 })}" />`,
       ...backgroundPixels,
       ...urnPixels,
       ...candlePixels,
