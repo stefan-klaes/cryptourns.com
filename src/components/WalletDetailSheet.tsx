@@ -49,7 +49,7 @@ export function WalletDetailSheet({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chain } = useAccount();
   const { disconnect } = useDisconnect();
   const { data: balance, isLoading: balanceLoading } = useBalance({ address });
 
@@ -73,7 +73,7 @@ export function WalletDetailSheet({
       open={open}
       onOpenChange={onOpenChange}
       title="Wallet"
-      description="Connected account and balance."
+      description={`Connected account and balance on ${chain?.name}.`}
       footer={
         <Button
           type="button"
