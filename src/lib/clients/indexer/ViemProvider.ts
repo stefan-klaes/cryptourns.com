@@ -1,17 +1,23 @@
+import { CRYPTOURNS_CONTRACT } from "@/lib/contract/cryptourns.contract";
 import type { Address, PublicClient } from "viem";
 import { createPublicClient, getAddress, http } from "viem";
 import { mainnet, sepolia } from "viem/chains";
-import { CRYPTOURNS_CONTRACT } from "./cryptourns.contract";
+
+export function createCryptournsPublicClient(): PublicClient {
+  const isMainnet = Boolean(process.env.isMainnet);
+  return createPublicClient({
+    chain: isMainnet ? mainnet : sepolia,
+    transport: http(rpcUrl(isMainnet)),
+  });
+}
 
 export class ViemProvider {
+  readonly name = "Viem" as const;
+
   private readonly client: PublicClient;
 
   constructor() {
-    const isMainnet = Boolean(process.env.isMainnet);
-    this.client = createPublicClient({
-      chain: isMainnet ? mainnet : sepolia,
-      transport: http(rpcUrl(isMainnet)),
-    });
+    this.client = createCryptournsPublicClient();
   }
 
   async getTokenboundAccount(urnId: number): Promise<Address> {

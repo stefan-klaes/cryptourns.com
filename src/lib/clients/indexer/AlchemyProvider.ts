@@ -1,5 +1,5 @@
-import { CRYPTOURNS_CONTRACT } from "@/lib/contract/cryptourns.contract";
 import { AssetType } from "@/generated/prisma";
+import { CRYPTOURNS_CONTRACT } from "@/lib/contract/cryptourns.contract";
 import type { Asset } from "./Asset";
 
 type RawAlchemyOwnedNft = {
@@ -19,7 +19,7 @@ export type AlchemyGetNftsResponse = {
 /** Parsed JSON from Alchemy `getNFTsForCollection`. */
 export type AlchemyGetNftsForCollectionResponse = Record<string, unknown>;
 
-function parseOwnedNft(raw: RawAlchemyOwnedNft): Asset | null {
+export function parseAlchemyOwnedNft(raw: RawAlchemyOwnedNft): Asset | null {
   const addr = raw.contract?.address;
   if (typeof addr !== "string" || !addr.startsWith("0x")) return null;
 
@@ -45,6 +45,8 @@ function parseOwnedNft(raw: RawAlchemyOwnedNft): Asset | null {
 }
 
 export class AlchemyProvider {
+  readonly name = "Alchemy" as const;
+
   private readonly apiKey: string;
   private readonly host: string;
 
@@ -83,17 +85,13 @@ export class AlchemyProvider {
     return res.json() as Promise<AlchemyGetNftsResponse>;
   }
 
-  async getNfts(owner: string): Promise<AlchemyGetNftsResponse> {
-    return this.fetchNftsPage(owner);
-  }
-
-  async getAllNftsForOwner(owner: string): Promise<Asset[]> {
+  async getNfts(owner: string, _pageKey?: string): Promise<Asset[]> {
     const out: Asset[] = [];
     let pageKey: string | undefined;
     do {
       const res = await this.fetchNftsPage(owner, pageKey);
       for (const raw of res.ownedNfts) {
-        const parsed = parseOwnedNft(raw);
+        const parsed = parseAlchemyOwnedNft(raw);
         if (parsed) out.push(parsed);
       }
       pageKey = res.pageKey;
