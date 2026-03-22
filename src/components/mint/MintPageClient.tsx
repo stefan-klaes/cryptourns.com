@@ -18,9 +18,14 @@ export function MintPageClient() {
   const router = useRouter();
   const { address, isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
-  const { mintPriceWei, formattedMintPrice, totalSupply, loading: cryptournsLoading } =
-    useCryptourns();
-  const { step, isOpen, mint, reset } = useMint();
+  const {
+    mintPriceWei,
+    formattedMintPrice,
+    totalSupply,
+    mintPaused,
+    loading: cryptournsLoading,
+  } = useCryptourns();
+  const { step, isOpen, mint, reset, errorMessage, mintedTokenIds } = useMint();
 
   const [manualAddresses, setManualAddresses] = useState<Address[]>([]);
   const [hiddenConnectedAddress, setHiddenConnectedAddress] = useState<
@@ -81,12 +86,17 @@ export function MintPageClient() {
       openConnectModal?.();
       return;
     }
-    mint();
+    if (addresses.length === 0 || mintPaused) return;
+    void mint(addresses);
   };
 
   const handleComplete = () => {
     reset();
-    router.push("/urns/mock-urn-1" as never);
+    if (mintedTokenIds.length === 1) {
+      router.push(`/urn/${mintedTokenIds[0]!.toString()}`);
+      return;
+    }
+    router.push("/urns");
   };
 
   return (
@@ -160,11 +170,21 @@ export function MintPageClient() {
             count={Math.max(addresses.length, 1)}
           />
 
+          {isConnected && mintPaused ? (
+            <p className="text-center text-sm text-amber-600 dark:text-amber-500">
+              Minting is paused on the contract.
+            </p>
+          ) : null}
+
           <Button
             size="lg"
             className="w-full"
             onClick={handleMint}
-            disabled={isOpen}
+            disabled={
+              isOpen ||
+              (isConnected &&
+                (addresses.length === 0 || mintPaused || cryptournsLoading))
+            }
           >
             {isConnected
               ? `Mint ${addresses.length > 1 ? `${addresses.length} Urns` : "Urn"}`
@@ -179,6 +199,7 @@ export function MintPageClient() {
           if (!open) reset();
         }}
         step={step}
+        errorMessage={errorMessage}
         onComplete={handleComplete}
       />
     </>

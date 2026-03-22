@@ -17,6 +17,7 @@ type MintProgressDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   step: MintStep;
+  errorMessage?: string | null;
   onComplete: () => void;
 };
 
@@ -83,52 +84,72 @@ export function MintProgressDialog({
   open,
   onOpenChange,
   step,
+  errorMessage,
   onComplete,
 }: MintProgressDialogProps) {
   const currentIndex = STEP_ORDER[step] ?? -1;
 
   const handleOpenChange = (value: boolean) => {
-    // Only allow closing when minting is done
-    if (!value && step !== "done") return;
+    if (!value && step !== "done" && step !== "error") return;
     onOpenChange(value);
   };
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent showCloseButton={step === "done"} className="sm:max-w-sm">
+      <DialogContent
+        showCloseButton={step === "done" || step === "error"}
+        className="sm:max-w-sm"
+      >
         <DialogHeader>
           <DialogTitle>
-            {step === "done" ? "Mint successful" : "Minting your urn"}
+            {step === "done"
+              ? "Mint successful"
+              : step === "error"
+                ? "Mint failed"
+                : "Minting your urn"}
           </DialogTitle>
           <DialogDescription>
             {step === "done"
               ? "Your urn has been minted and is ready to view."
-              : "Please wait while we process your transaction."}
+              : step === "error"
+                ? (errorMessage ??
+                  "Something went wrong. You can close this dialog and try again.")
+                : "Please wait while we process your transaction."}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
-          {STEPS.map(({ key, label, icon }, i) => {
-            let state: "pending" | "active" | "complete";
-            if (i < currentIndex) state = "complete";
-            else if (i === currentIndex) state = key === "done" ? "complete" : "active";
-            else state = "pending";
+        {step === "error" ? (
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => onOpenChange(false)}
+          >
+            Close
+          </Button>
+        ) : (
+          <div className="space-y-4 py-2">
+            {STEPS.map(({ key, label, icon }, i) => {
+              let state: "pending" | "active" | "complete";
+              if (i < currentIndex) state = "complete";
+              else if (i === currentIndex)
+                state = key === "done" ? "complete" : "active";
+              else state = "pending";
 
-            // The "done" step should use Sparkles (no spin), override active → complete
-            const displayIcon =
-              key === "waiting" && state === "active" ? Loader2 : icon;
+              const displayIcon =
+                key === "waiting" && state === "active" ? Loader2 : icon;
 
-            return (
-              <StepItem
-                key={key}
-                label={label}
-                icon={displayIcon}
-                state={state}
-                spin={key === "waiting"}
-              />
-            );
-          })}
-        </div>
+              return (
+                <StepItem
+                  key={key}
+                  label={label}
+                  icon={displayIcon}
+                  state={state}
+                  spin={key === "waiting"}
+                />
+              );
+            })}
+          </div>
+        )}
 
         {step === "done" && (
           <Button onClick={onComplete} className="w-full">

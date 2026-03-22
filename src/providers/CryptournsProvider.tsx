@@ -13,6 +13,7 @@ interface CryptournsContextType {
   mintPrice: number;
   mintPriceWei: bigint;
   formattedMintPrice: string;
+  mintPaused: boolean;
   loading: boolean;
   refetch: () => void;
 }
@@ -44,13 +45,18 @@ export function CryptournsProvider({ children }: CryptournsProviderProps) {
         ...CRYPTOURNS_CONTRACT,
         functionName: "mintPrice",
       },
+      {
+        ...CRYPTOURNS_CONTRACT,
+        functionName: "mintPaused",
+      },
     ],
   });
 
-  const [totalSupplyRaw, mintPriceRaw] = data ?? [];
+  const [totalSupplyRaw, mintPriceRaw, mintPausedRaw] = data ?? [];
 
   const totalSupply = Number(totalSupplyRaw?.result ?? 0);
   const mintPriceWei = mintPriceRaw?.result ?? BigInt(0);
+  const mintPaused = Boolean(mintPausedRaw?.result ?? false);
   const mintPrice = Number(formatEther(mintPriceWei));
   const formattedMintPrice = formatEthereum(mintPriceWei, 4);
 
@@ -59,6 +65,7 @@ export function CryptournsProvider({ children }: CryptournsProviderProps) {
     mintPrice,
     mintPriceWei,
     formattedMintPrice,
+    mintPaused,
     loading: isLoading || isFetching,
     refetch,
   };
