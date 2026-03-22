@@ -1,26 +1,46 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useId, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { urnPixelArray, RIP_TEXT_COORDS } from "@/lib/urn/urnShape";
 import { computeRomanCoords } from "@/lib/urn/romanNumerals";
 
-const URN_BODY_PALETTES = [
-  ["#e8725a", "#d4594a", "#f0956e", "#c4453e", "#d97b6a"],
-  ["#1b3a5c", "#2a6478", "#3d8e9e", "#1f4f6e", "#4ba3a8"],
-  ["#2d5a3d", "#4a7a56", "#3b6b48", "#6b8f5e", "#587a4e"],
-  ["#3c2d6b", "#5b4a8a", "#7a5fa0", "#4e3d7a", "#6b5592"],
-  ["#7a2e2e", "#9c4040", "#b05a3a", "#8b3535", "#a04a42"],
-  ["#3d4a5c", "#546478", "#4a5a6e", "#6b7a8e", "#5c6c80"],
-  ["#c48820", "#d4a035", "#b07818", "#a86828", "#cc942a"],
-  ["#6aa0b8", "#80b4c8", "#5890a8", "#92c4d4", "#7aaac0"],
-  ["#1a1a2e", "#2d2d44", "#3a3a52", "#242438", "#32324a"],
-  ["#a8566a", "#c47088", "#8e4a5c", "#b86078", "#9a5268"],
+const URN_COLOR_FAMILIES = [
+  { hueMin: 8, hueMax: 24, satMin: 58, satMax: 78 },
+  { hueMin: 26, hueMax: 42, satMin: 54, satMax: 74 },
+  { hueMin: 190, hueMax: 216, satMin: 40, satMax: 62 },
+  { hueMin: 126, hueMax: 152, satMin: 32, satMax: 54 },
+  { hueMin: 256, hueMax: 286, satMin: 34, satMax: 58 },
+  { hueMin: 336, hueMax: 356, satMin: 34, satMax: 56 },
+  { hueMin: 210, hueMax: 232, satMin: 12, satMax: 26 },
 ];
 
-const BG_COLORS = ["#ffffff", "#f5f5f5", "#f8f8f8", "#f1f1f1", "#f3f3f3"];
-const SOCKEL_COLORS = ["#111010", "#171717", "#191818", "#211f1f", "#161515"];
-const CANDLE_COLORS = ["#ffff00", "#d8d80a", "#d2d21a", "#bdbd0d", "#f3f332"];
+type HslColor = {
+  h: number;
+  s: number;
+  l: number;
+};
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function randomBetween(rng: () => number, min: number, max: number) {
+  return min + (max - min) * rng();
+}
+
+function toHsl({ h, s, l }: HslColor) {
+  return `hsl(${Math.round(h)} ${Math.round(s)}% ${Math.round(l)}%)`;
+}
+
+function hashStringToSeed(value: string) {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i++) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
 
 function mulberry32(seed: number) {
   return function () {
@@ -36,38 +56,124 @@ interface UrnRendererProps {
   assetCount: number;
   candleCount: number;
   className?: string;
+  seed?: string | number;
 }
 
 export function UrnRenderer({
   assetCount,
   candleCount,
   className,
+  seed,
 }: UrnRendererProps) {
-  const seedRef = useRef(Date.now());
+  const seedId = useId();
+  const resolvedSeed = seed ?? seedId;
 
   const svgContent = useMemo(() => {
-    const rng = mulberry32(seedRef.current);
+    type CellType = "transparent" | "urn" | "sockel" | "candles";
+
+    const rng = mulberry32(hashStringToSeed(String(resolvedSeed)));
     const size = 600;
     const cellSize = size / 60;
     const gridSize = 60;
     const pixel = urnPixelArray();
 
-    // Pick base palette for urn body and a different accent palette for stripe
-    const baseIdx = Math.floor(rng() * URN_BODY_PALETTES.length);
-    let accentIdx = Math.floor(rng() * (URN_BODY_PALETTES.length - 1));
-    if (accentIdx >= baseIdx) accentIdx++;
-    const basePalette = URN_BODY_PALETTES[baseIdx];
-    const accentPalette = URN_BODY_PALETTES[accentIdx];
+    const urnFamily =
+      URN_COLOR_FAMILIES[Math.floor(rng() * URN_COLOR_FAMILIES.length)];
+    const urnHue = randomBetween(rng, urnFamily.hueMin, urnFamily.hueMax);
+    const urnSaturation = randomBetween(rng, urnFamily.satMin, urnFamily.satMax);
+    const gradientMode = ["vertical", "horizontal", "angled"][
+      Math.floor(rng() * 3)
+    ] as "vertical" | "horizontal" | "angled";
+    const gradientAngle =
+      gradientMode === "vertical"
+        ? Math.PI / 2
+        : gradientMode === "horizontal"
+          ? 0
+          : randomBetween(rng, 0, Math.PI * 2);
+    const gradientVector = {
+      x: Math.cos(gradientAngle),
+      y: Math.sin(gradientAngle),
+    };
+    const projectionRange = [
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+      { x: 0, y: 1 },
+      { x: 1, y: 1 },
+    ].map(({ x, y }) => x * gradientVector.x + y * gradientVector.y);
+    const minProjection = Math.min(...projectionRange);
+    const maxProjection = Math.max(...projectionRange);
+    const lightStart = randomBetween(rng, 56, 68);
+    const lightEnd = lightStart - randomBetween(rng, 18, 30);
+    const hueDrift = randomBetween(rng, -12, 12);
+    const saturationDrift = randomBetween(rng, -10, 10);
+    const backgroundHue = (urnHue + randomBetween(rng, -18, 18) + 360) % 360;
+    const backgroundSaturation = randomBetween(rng, 6, 16);
+    const pedestalHue = (urnHue + randomBetween(rng, -8, 8) + 360) % 360;
+    const pedestalSaturation = clamp(urnSaturation * randomBetween(rng, 0.35, 0.55), 12, 34);
+    const pedestalLightness = randomBetween(rng, 16, 24);
+    const candleHue = randomBetween(rng, 42, 58);
+    const isDarkUrnVariant = rng() < 0.5;
 
-    // Stripe band: a horizontal stripe across ~8 rows in the middle of the urn
-    const stripeStart = 20;
-    const stripeEnd = 27;
+    const getGradientT = (x: number, y: number) => {
+      const nx = x / (gridSize - 1);
+      const ny = y / (gridSize - 1);
+      const projection = nx * gradientVector.x + ny * gradientVector.y;
+      return (projection - minProjection) / (maxProjection - minProjection);
+    };
+
+    const getUrnColor = (x: number, y: number) => {
+      const t = getGradientT(x, y);
+      const isTopUrnRow = y === 3;
+      const lightnessBase =
+        lightStart + (lightEnd - lightStart) * t + randomBetween(rng, -2.5, 2.5);
+      const saturationBase =
+        urnSaturation +
+        saturationDrift * (t - 0.5) +
+        randomBetween(rng, -4, 4);
+      const hueBase =
+        urnHue + hueDrift * (t - 0.5) + randomBetween(rng, -3, 3);
+      const variantLightness = isDarkUrnVariant
+        ? clamp(13 - t * 7 + randomBetween(rng, -1.5, 1.5), 3, 18)
+        : lightnessBase + randomBetween(rng, -1.5, 1.5);
+      const variantSaturation = isDarkUrnVariant
+        ? clamp(saturationBase * 0.68 + randomBetween(rng, -3, 3), 12, 52)
+        : clamp(saturationBase, 18, 90);
+
+      return toHsl({
+        h: (hueBase + 360) % 360,
+        s: variantSaturation,
+        l: clamp(
+          variantLightness + (isTopUrnRow ? (isDarkUrnVariant ? -6 : -16) : 0),
+          isDarkUrnVariant ? 2 : 14,
+          isDarkUrnVariant ? 20 : 78,
+        ),
+      });
+    };
+
+    const getBackgroundColor = () =>
+      toHsl({
+        h: (backgroundHue + randomBetween(rng, -4, 4) + 360) % 360,
+        s: clamp(backgroundSaturation + randomBetween(rng, -3, 3), 0, 24),
+        l: clamp(randomBetween(rng, 94, 99), 90, 100),
+      });
+
+    const getCandleColor = () =>
+      toHsl({
+        h: (candleHue + randomBetween(rng, -7, 7) + 360) % 360,
+        s: clamp(randomBetween(rng, 76, 98), 0, 100),
+        l: clamp(randomBetween(rng, 44, 64), 0, 100),
+      });
 
     // Build pixel grid
-    type CellType = "transparent" | "urn" | "stripe" | "sockel" | "candles";
     const pixelGrid: CellType[][] = Array.from({ length: 61 }, () =>
       Array<CellType>(61).fill("transparent"),
     );
+    const pedestalBounds = {
+      minX: Number.POSITIVE_INFINITY,
+      maxX: Number.NEGATIVE_INFINITY,
+      minY: Number.POSITIVE_INFINITY,
+      maxY: Number.NEGATIVE_INFINITY,
+    };
 
     let row = 0;
     for (const p of pixel) {
@@ -77,13 +183,66 @@ export function UrnRenderer({
       const end = parseInt(parts[2]);
       for (let k = start - 1; k <= end; k++) {
         if (parts[0] === "urn") {
-          pixelGrid[row][k + 1] =
-            row >= stripeStart && row <= stripeEnd ? "stripe" : "urn";
+          pixelGrid[row][k + 1] = "urn";
         } else if (parts[0] === "sockel") {
           pixelGrid[row][k + 1] = "sockel";
+          pedestalBounds.minX = Math.min(pedestalBounds.minX, k);
+          pedestalBounds.maxX = Math.max(pedestalBounds.maxX, k);
+          pedestalBounds.minY = Math.min(pedestalBounds.minY, row - 1);
+          pedestalBounds.maxY = Math.max(pedestalBounds.maxY, row - 1);
         }
       }
     }
+
+    const getPedestalColor = (x: number, y: number, variant: "base" | "text" = "base") => {
+      const width = Math.max(pedestalBounds.maxX - pedestalBounds.minX, 1);
+      const height = Math.max(pedestalBounds.maxY - pedestalBounds.minY, 1);
+      const nx = (x - pedestalBounds.minX) / width;
+      const ny = (y - pedestalBounds.minY) / height;
+      const centerLift = 1 - Math.min(Math.abs(nx - 0.5) * 2, 1);
+      const topLift = 1 - ny;
+      const edgeShade = Math.abs(nx - 0.5) * 10;
+      const baseLightness =
+        pedestalLightness + centerLift * 6 + topLift * 5 - edgeShade;
+      const variantBaseLightness = isDarkUrnVariant
+        ? 10 + centerLift * 3 + topLift * 2 - ny * 2
+        : baseLightness;
+
+      return toHsl({
+        h: (pedestalHue + randomBetween(rng, -3, 3) + 360) % 360,
+        s: clamp(
+          (isDarkUrnVariant
+            ? urnSaturation * 0.72 + centerLift * 3 - ny * 2
+            : pedestalSaturation + centerLift * 4 - ny * 4) +
+            randomBetween(rng, -2, 2),
+          isDarkUrnVariant ? 20 : 10,
+          isDarkUrnVariant ? 60 : 38,
+        ),
+        l: clamp(
+          variantBaseLightness +
+            (variant === "text"
+              ? isDarkUrnVariant
+                ? -3
+                : -10
+              : 0) +
+            randomBetween(rng, -1.5, 1.5),
+          variant === "text"
+            ? isDarkUrnVariant
+              ? 3
+              : 6
+            : isDarkUrnVariant
+              ? 6
+              : 10,
+          variant === "text"
+            ? isDarkUrnVariant
+              ? 16
+              : 22
+            : isDarkUrnVariant
+              ? 20
+              : 34,
+        ),
+      });
+    };
 
     // Compute free coordinates for candles
     const freeCoordinates: string[] = [];
@@ -95,6 +254,7 @@ export function UrnRenderer({
         const end = parseInt(parts[2]) + 1;
         for (let i = 0; i < 60; i++) {
           if (i < start || i >= end) {
+            if (freerow < 3) continue;
             if (freerow === 3 && i > 19 && i < 41) continue;
             freeCoordinates.push(`${i}-${freerow}`);
           }
@@ -123,8 +283,6 @@ export function UrnRenderer({
         fullCandleBg = true;
       }
     }
-
-    const bgColors = fullCandleBg ? CANDLE_COLORS : BG_COLORS;
 
     // RIP text positions
     const ripPositions: boolean[][] = Array.from({ length: 61 }, () =>
@@ -161,17 +319,17 @@ export function UrnRenderer({
         (_, i) =>
           `<rect id="p${i}" width="${bigCellSize}" height="${bigCellSize}" transform="rotate(45 ${half} ${half})" />`,
       ),
-      // Non-rotated rects for sockel
+      // Rotated rects for sockel
       ...Array.from(
         { length: 3 },
         (_, i) =>
-          `<rect id="r${i}" width="${cellSize}" height="${cellSize}" />`,
+          `<rect id="r${i}" width="${bigCellSize}" height="${bigCellSize}" transform="rotate(45 ${half} ${half})" />`,
       ),
-      // Circles for candles
+      // Single-cell rotated rects for candles
       ...Array.from(
         { length: 3 },
         (_, i) =>
-          `<circle id="c${i}" cx="${candleRadius}" cy="${candleRadius}" r="${candleRadius}" />`,
+          `<rect id="c${i}" width="${cellSize}" height="${cellSize}" transform="rotate(45 ${half} ${half})" />`,
       ),
       // Bigger circles for text
       ...Array.from(
@@ -197,31 +355,22 @@ export function UrnRenderer({
         const py = y * cellSize;
 
         if (cell === "transparent") {
-          const color = bgColors[Math.floor(rng() * bgColors.length)];
+          const color = fullCandleBg ? getCandleColor() : getBackgroundColor();
           backgroundPixels.push(
             `<use href="#p${shapeId}" x="${px}" y="${py}" fill="${color}"/>`,
           );
         } else if (cell === "urn") {
-          const color =
-            basePalette[Math.floor(rng() * basePalette.length)];
-          urnPixels.push(
-            `<use href="#p${shapeId}" x="${px}" y="${py}" fill="${color}"/>`,
-          );
-        } else if (cell === "stripe") {
-          const color =
-            accentPalette[Math.floor(rng() * accentPalette.length)];
+          const color = getUrnColor(x, y);
           urnPixels.push(
             `<use href="#p${shapeId}" x="${px}" y="${py}" fill="${color}"/>`,
           );
         } else if (cell === "sockel") {
-          const color =
-            SOCKEL_COLORS[Math.floor(rng() * SOCKEL_COLORS.length)];
+          const color = getPedestalColor(x, y);
           podestPixels.push(
             `<use href="#r${shapeId}" x="${px}" y="${py}" fill="${color}"/>`,
           );
         } else if (cell === "candles") {
-          const color =
-            CANDLE_COLORS[Math.floor(rng() * CANDLE_COLORS.length)];
+          const color = getCandleColor();
           candlePixels.push(
             `<use href="#c${shapeId}" x="${px}" y="${py}" fill="${color}"/>`,
           );
@@ -229,8 +378,7 @@ export function UrnRenderer({
 
         // RIP text overlay
         if (ripPositions[y + 1][x + 1]) {
-          const color =
-            SOCKEL_COLORS[Math.floor(rng() * SOCKEL_COLORS.length)];
+          const color = getPedestalColor(x, y, "text");
           ripTextPixels.push(
             `<use href="#b${shapeId}" x="${px}" y="${py}" fill="${color}"/>`,
           );
@@ -238,8 +386,7 @@ export function UrnRenderer({
 
         // Roman numeral overlay
         if (romanPositions[y + 1][x + 1]) {
-          const color =
-            SOCKEL_COLORS[Math.floor(rng() * SOCKEL_COLORS.length)];
+          const color = getPedestalColor(x, y, "text");
           romanPixels.push(
             `<use href="#b${shapeId}" x="${px}" y="${py}" fill="${color}"/>`,
           );
@@ -250,7 +397,7 @@ export function UrnRenderer({
     const svgStr = [
       `<svg width="100%" height="100%" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">`,
       `<defs>${defs.join("")}</defs>`,
-      `<rect width="100%" height="100%" fill="#f0f0f0"/>`,
+      `<rect width="100%" height="100%" fill="${toHsl({ h: backgroundHue, s: 10, l: 96 })}"/>`,
       ...backgroundPixels,
       ...urnPixels,
       ...candlePixels,
@@ -261,7 +408,7 @@ export function UrnRenderer({
     ].join("");
 
     return svgStr;
-  }, [assetCount, candleCount]);
+  }, [assetCount, candleCount, resolvedSeed]);
 
   return (
     <div

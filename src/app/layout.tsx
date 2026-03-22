@@ -1,4 +1,5 @@
 import { Navigation } from "@/components/Navigation";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { Web3Provider } from "@/providers/Web3Provider";
 import type { Metadata } from "next";
@@ -40,12 +41,14 @@ export default function RootLayout({
       )}
     >
       <body className="min-h-full flex flex-col dark">
-        <Web3Provider>
-          <Navigation />
-          <div className="flex min-h-0 flex-1 flex-col pt-14 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
-            {children}
-          </div>
-        </Web3Provider>
+        <TooltipProvider delay={200}>
+          <Web3Provider>
+            <Navigation />
+            <div className="flex min-h-0 flex-1 flex-col pt-14 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
+              {children}
+            </div>
+          </Web3Provider>
+        </TooltipProvider>
       </body>
     </html>
   );
