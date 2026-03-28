@@ -43,6 +43,9 @@ model Urn {
   id        Int      @id
   tba       String   @unique
   cracked   Boolean  @default(false)
+  mintTx    String
+  mintedAt  DateTime
+  mintedBy  String
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
 

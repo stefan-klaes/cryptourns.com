@@ -9,6 +9,9 @@ import { CRYPTOURNS_CONTRACT } from "@/lib/contract/cryptourns.contract";
  * from Alchemy, and replaces {@link Asset} rows for that urn (excluding ignored contracts).
  */
 export async function updateUrnMetadata(urnId: number): Promise<void> {
+  const existing = await db.urn.findUnique({ where: { id: urnId } });
+  if (!existing) return;
+
   const tba = await getTokenboundAccount(urnId);
   const assets = await getNfts(tba);
 
@@ -21,10 +24,9 @@ export async function updateUrnMetadata(urnId: number): Promise<void> {
   }
 
   await db.$transaction(async (tx) => {
-    await tx.urn.upsert({
+    await tx.urn.update({
       where: { id: urnId },
-      create: { id: urnId, tba, cracked: false },
-      update: { tba },
+      data: { tba },
     });
     await tx.asset.deleteMany({ where: { urnId: urnId } });
     if (rows.length > 0) {
