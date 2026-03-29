@@ -3,14 +3,6 @@ import type { Address, PublicClient } from "viem";
 import { createPublicClient, getAddress, http } from "viem";
 import { mainnet, sepolia } from "viem/chains";
 
-export function createCryptournsPublicClient(): PublicClient {
-  const isMainnet = Boolean(process.env.isMainnet);
-  return createPublicClient({
-    chain: isMainnet ? mainnet : sepolia,
-    transport: http(rpcUrl(isMainnet)),
-  });
-}
-
 export class ViemProvider {
   readonly name = "Viem" as const;
 
@@ -38,4 +30,12 @@ function rpcUrl(isMainnet: boolean): string {
   return isMainnet
     ? `https://eth-mainnet.g.alchemy.com/v2/${key}`
     : `https://eth-sepolia.g.alchemy.com/v2/${key}`;
+}
+
+function createCryptournsPublicClient(): PublicClient {
+  const isMainnet = Boolean(process.env.isMainnet);
+  return createPublicClient({
+    chain: isMainnet ? mainnet : sepolia,
+    transport: http(rpcUrl(isMainnet)),
+  });
 }

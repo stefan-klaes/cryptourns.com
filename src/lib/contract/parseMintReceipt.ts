@@ -1,8 +1,6 @@
-import {
-  parseEventLogs,
-  zeroAddress,
-  type TransactionReceipt,
-} from "viem";
+import { parseEventLogs, type TransactionReceipt } from "viem";
+
+import { ZERO_ADDRESS } from "@/lib/constants/zeroAddress";
 
 import { abi } from "./abi";
 
@@ -20,7 +18,7 @@ export function getMintedTokenIdsFromReceipt(
 
   const ids: bigint[] = [];
   for (const log of logs) {
-    if (log.args.from?.toLowerCase() !== zeroAddress.toLowerCase()) continue;
+    if (log.args.from?.toLowerCase() !== ZERO_ADDRESS.toLowerCase()) continue;
     if (log.args.tokenId === undefined) continue;
     ids.push(log.args.tokenId);
   }
