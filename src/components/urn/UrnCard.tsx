@@ -24,17 +24,24 @@ export function UrnCard({
       href={`/urn/${urnId}`}
       className="group block outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
-      <article className="overflow-hidden rounded-2xl border border-border bg-card/90 shadow-sm ring-1 ring-black/5 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md dark:ring-white/10 dark:hover:border-primary/35">
-        <div className="relative aspect-square bg-muted/40">
-          <Image
-            src={imageSrc}
-            alt={title}
-            width={480}
-            height={480}
-            className="h-full w-full object-contain p-3 transition-transform duration-300 group-hover:scale-[1.02]"
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-            unoptimized
+      <article className="overflow-hidden rounded-2xl border border-border bg-card/90 shadow-sm ring-1 ring-black/5 transition-[border-color,box-shadow,ring-color] duration-200 hover:border-primary/45 hover:shadow-md hover:ring-primary/25 dark:ring-white/10 dark:hover:border-primary/50 dark:hover:ring-primary/30">
+        <div className="relative aspect-square bg-gradient-to-b from-muted/25 via-muted/40 to-muted/55">
+          <div
+            className="absolute inset-0 bg-[radial-gradient(ellipse_85%_70%_at_50%_45%,var(--card)_0%,transparent_65%)] opacity-90 dark:opacity-70"
+            aria-hidden
           />
+          <div className="absolute inset-5 sm:inset-6">
+            <div className="relative h-full w-full">
+              <Image
+                src={imageSrc}
+                alt={title}
+                fill
+                className="object-contain object-center drop-shadow-[0_8px_24px_rgba(0,0,0,0.12)] transition-[filter] duration-200 group-hover:brightness-[1.03] dark:drop-shadow-[0_8px_28px_rgba(0,0,0,0.45)] dark:group-hover:brightness-[1.06]"
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                unoptimized
+              />
+            </div>
+          </div>
           {cracked ? (
             <span className="absolute top-2 right-2 rounded-full bg-destructive/90 px-2 py-0.5 text-[0.65rem] font-semibold tracking-wide text-destructive-foreground uppercase backdrop-blur-sm">
               Cracked
@@ -44,7 +51,7 @@ export function UrnCard({
 
         <div className="space-y-3 border-t border-border/80 px-4 py-4">
           <div>
-            <h2 className="mt-0.5 text-lg font-semibold tracking-tight text-foreground group-hover:text-primary">
+            <h2 className="mt-0.5 text-lg font-semibold tracking-tight text-foreground">
               {title}
             </h2>
           </div>
