@@ -31,6 +31,9 @@ model Asset {
   tokenId          String
   type             AssetType
   quantity         Int
+  name             String?
+  imageUrl         String?
+  collectionName   String?
   createdAt        DateTime  @default(now())
 
   urn Urn @relation(fields: [urnId], references: [id], onDelete: Cascade)

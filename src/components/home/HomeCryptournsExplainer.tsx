@@ -1,4 +1,5 @@
 import { HomeExplainerVisual } from "@/components/home/HomeExplainerVisual";
+import { UrnMintHeroPreview } from "@/components/urn/UrnMintHeroPreview";
 
 function StepHeading({
   step,
@@ -88,54 +89,32 @@ export function HomeCryptournsExplainer() {
           </p>
 
           <article
-            className="grid gap-10 lg:grid-cols-2 lg:items-center lg:gap-16 xl:gap-20"
+            className="max-w-3xl space-y-8 lg:space-y-10"
             aria-labelledby="explainer-mint"
           >
-            <div className="order-1 max-w-[min(100%,52rem)] lg:order-1">
+            <div>
               <StepHeading step={1} id="explainer-mint" title="Mint" />
               <p className="text-3xl leading-[1.12] font-semibold tracking-tight text-foreground sm:text-4xl sm:leading-[1.1] md:text-5xl md:leading-[1.08] lg:text-6xl lg:leading-[1.06]">
-                Mint an urn. You get an{" "}
-                <span className="text-muted-foreground">empty</span> one—grey
-                stone, no story yet.
+                Mint an urn—then make it yours.
               </p>
             </div>
-            <div className="order-2 lg:order-2">
-              <HomeExplainerVisual variant="intro" />
-            </div>
+            <UrnMintHeroPreview variant="featured" />
           </article>
 
           <article
-            className="grid gap-10 lg:grid-cols-2 lg:items-center lg:gap-16 xl:gap-20"
+            className="max-w-[min(100%,52rem)]"
             aria-labelledby="explainer-send-in"
           >
-            <div className="order-1 max-w-[min(100%,52rem)] lg:order-1">
-              <StepHeading step={2} id="explainer-send-in" title="Send in" />
-              <p className="text-3xl leading-[1.12] font-semibold tracking-tight text-foreground sm:text-4xl sm:leading-[1.1] md:text-5xl md:leading-[1.08] lg:text-6xl lg:leading-[1.06]">
-                Your Cryptourn has a real{" "}
-                <span className="text-muted-foreground">0x…</span> wallet
-                (ERC-6551 token-bound account).{" "}
-                <span className="bg-gradient-to-r from-primary via-chart-2 to-chart-3 bg-clip-text text-transparent">
-                  Send assets in
-                </span>
-                —the Roman numeral and palette wake up from what you park
-                inside.
-              </p>
-              <ul className={detailListClass}>
-                <li>
-                  <strong>Deposit</strong> to the urn&apos;s address like any
-                  wallet—<strong>ERC-721</strong>, <strong>ERC-1155</strong>, and{" "}
-                  <strong>ERC-20</strong> on chains you use.
-                </li>
-                <li>
-                  <strong>Roman count</strong> on the art follows NFT units
-                  (721 / 1155); <strong>ERC-20</strong> balances show in metadata
-                  and the index too.
-                </li>
-              </ul>
-            </div>
-            <div className="order-2 lg:order-2">
-              <HomeExplainerVisual variant="palette" />
-            </div>
+            <StepHeading step={2} id="explainer-send-in" title="Send in" />
+            <p className="text-3xl leading-[1.12] font-semibold tracking-tight text-foreground sm:text-4xl sm:leading-[1.1] md:text-5xl md:leading-[1.08] lg:text-6xl lg:leading-[1.06]">
+              Each urn has its own{" "}
+              <span className="text-muted-foreground">0x…</span> wallet
+              (ERC-6551).{" "}
+              <span className="bg-gradient-to-r from-primary via-chart-2 to-chart-3 bg-clip-text text-transparent">
+                Send NFTs or tokens
+              </span>
+              —that&apos;s when color and the count on the art turn on.
+            </p>
           </article>
 
           <article

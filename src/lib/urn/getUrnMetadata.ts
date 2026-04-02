@@ -1,6 +1,15 @@
 import { db } from "@/lib/clients/db";
 import type { UrnMetadata } from "@/lib/urn/UrnMetadata";
 import { toUrnMetadata, urnListInclude } from "@/lib/urn/toUrnMetadata";
+import type { Address } from "viem";
+import { getAddress, isAddress } from "viem";
+
+export type UrnMetadataWithTba = {
+  metadata: UrnMetadata;
+  tba: Address;
+  /** Same as Candles trait; explicit for client props without parsing attributes. */
+  candleCount: number;
+};
 
 /**
  * Builds ERC-721 metadata for an urn from the database, or `null` if it does not exist.
@@ -8,7 +17,7 @@ import { toUrnMetadata, urnListInclude } from "@/lib/urn/toUrnMetadata";
  */
 export async function getUrnMetadata(
   urnId: number,
-): Promise<UrnMetadata | null> {
+): Promise<UrnMetadataWithTba | null> {
   const urn = await db.urn.findUnique({
     where: { id: urnId },
     include: urnListInclude,
@@ -16,5 +25,13 @@ export async function getUrnMetadata(
 
   if (!urn) return null;
 
-  return toUrnMetadata(urn);
+  if (!isAddress(urn.tba)) {
+    throw new Error(`Invalid TBA address stored for urn ${urnId}`);
+  }
+
+  return {
+    metadata: toUrnMetadata(urn),
+    tba: getAddress(urn.tba),
+    candleCount: urn._count.candles,
+  };
 }

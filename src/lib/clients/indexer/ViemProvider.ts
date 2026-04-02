@@ -1,7 +1,7 @@
-import { getCryptournsChainConfig } from "@/lib/chains/cryptournsChain";
+import { getCryptournsPublicClient } from "@/lib/clients/rpc/cryptournsPublicClient";
 import { CRYPTOURNS_CONTRACT } from "@/lib/contract/cryptourns.contract";
 import type { Address, PublicClient } from "viem";
-import { createPublicClient, getAddress, http } from "viem";
+import { getAddress } from "viem";
 
 export class ViemProvider {
   readonly name = "Viem" as const;
@@ -9,7 +9,7 @@ export class ViemProvider {
   private readonly client: PublicClient;
 
   constructor() {
-    this.client = createCryptournsPublicClient();
+    this.client = getCryptournsPublicClient();
   }
 
   async getTokenboundAccount(urnId: number): Promise<Address> {
@@ -31,21 +31,4 @@ export class ViemProvider {
     });
     return getAddress(ownerRaw);
   }
-}
-
-function rpcUrl(isMainnet: boolean): string {
-  const key = process.env.ALCHEMY_API_KEY;
-  if (!key)
-    throw new Error("Missing ETHEREUM_RPC_URL or ALCHEMY_API_KEY for RPC");
-  return isMainnet
-    ? `https://eth-mainnet.g.alchemy.com/v2/${key}`
-    : `https://eth-sepolia.g.alchemy.com/v2/${key}`;
-}
-
-function createCryptournsPublicClient(): PublicClient {
-  const { chain, isMainnet } = getCryptournsChainConfig();
-  return createPublicClient({
-    chain,
-    transport: http(rpcUrl(isMainnet)),
-  });
 }

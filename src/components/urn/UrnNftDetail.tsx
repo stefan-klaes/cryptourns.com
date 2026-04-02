@@ -1,40 +1,41 @@
-import { UrnAddressTraitCard } from "@/components/urn/UrnAddressTraitCard";
-import { UrnOwnerField } from "@/components/urn/UrnOwnerField";
-import type { UrnAttribute, UrnMetadata } from "@/lib/urn/UrnMetadata";
+import { LightCandleButton } from "@/components/urn/LightCandleButton";
+import { UrnIndexedAssetsSection } from "@/components/urn/UrnIndexedAssetsSection";
+import { UrnOwnerByline } from "@/components/urn/UrnOwnerByline";
+import { UrnVaultFundSection } from "@/components/urn/UrnVaultFundSection";
+import { CRYPTOURNS_CONTRACT } from "@/lib/contract/cryptourns.contract";
+import type { UrnIndexedAssetRow } from "@/lib/urn/getUrnIndexedAssets";
+import type { UrnMetadata } from "@/lib/urn/UrnMetadata";
 import Image from "next/image";
 import Link from "next/link";
-
-function formatTraitDisplay(attr: UrnAttribute): { short: string; full: string } {
-  if (typeof attr.value === "number") {
-    const s = attr.value.toLocaleString();
-    return { short: s, full: s };
-  }
-  const s = attr.value;
-  if (attr.trait_type === "Urn address" && s.startsWith("0x") && s.length > 18) {
-    return {
-      short: `${s.slice(0, 6)}…${s.slice(-4)}`,
-      full: s,
-    };
-  }
-  return { short: s, full: s };
-}
+import type { Address } from "viem";
 
 type UrnNftDetailProps = {
   urnId: number;
   metadata: UrnMetadata;
+  /** DB candle row count (same value as Candles trait). */
+  candleCount: number;
+  tbaAddress: Address;
+  chainName: string;
   ownerAddress: string | null;
   ownerEnsName: string | null;
   ownerExplorerBaseUrl: string;
+  indexedCoins: UrnIndexedAssetRow[];
+  indexedNfts: UrnIndexedAssetRow[];
 };
 
 export function UrnNftDetail({
   urnId,
   metadata,
+  candleCount,
+  tbaAddress,
+  chainName,
   ownerAddress,
   ownerEnsName,
   ownerExplorerBaseUrl,
+  indexedCoins,
+  indexedNfts,
 }: UrnNftDetailProps) {
-  const { image, name, description, attributes } = metadata;
+  const { image, name, description } = metadata;
 
   return (
     <main className="relative min-h-[calc(100vh-4rem)] overflow-hidden px-4 py-10 sm:px-6 lg:px-10">
@@ -59,99 +60,66 @@ export function UrnNftDetail({
         </nav>
 
         <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:items-start">
-          <div className="space-y-4">
-            <div className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-sm ring-1 ring-black/5 dark:ring-white/10">
-              <div className="aspect-square bg-muted/30">
-                <Image
-                  src={image}
-                  alt={name}
-                  width={1200}
-                  height={1200}
-                  className="h-full w-full object-cover"
-                  priority
-                  unoptimized
-                />
-              </div>
+          <div className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-sm ring-1 ring-black/5 dark:ring-white/10">
+            <div className="aspect-square bg-muted/30">
+              <Image
+                src={image}
+                alt={name}
+                width={1200}
+                height={1200}
+                className="h-full w-full object-cover"
+                priority
+                unoptimized
+              />
             </div>
-            <p className="text-center text-xs text-muted-foreground lg:text-left">
-              Renders the same URI as ERC-721 metadata{" "}
-              <span className="font-mono text-[0.7rem] text-foreground/80">
-                {image}
-              </span>
-            </p>
           </div>
 
           <div className="flex flex-col gap-8">
             <header className="space-y-3">
-              <p className="text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase">
-                Cryptourns
-              </p>
+              <div className="flex w-full min-w-0 items-baseline justify-between gap-3">
+                <p className="shrink-0 text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase">
+                  Cryptourns
+                </p>
+                {ownerAddress ? (
+                  <UrnOwnerByline
+                    ownerAddress={ownerAddress}
+                    ownerEnsName={ownerEnsName}
+                    ownerExplorerBaseUrl={ownerExplorerBaseUrl}
+                  />
+                ) : null}
+              </div>
               <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
                 {name}
               </h1>
               <p className="max-w-prose text-sm leading-relaxed text-muted-foreground sm:text-base">
                 {description}
               </p>
-              <p className="font-mono text-xs text-muted-foreground tabular-nums">
-                Token #{urnId}
-              </p>
-              {ownerAddress ? (
-                <UrnOwnerField
-                  ownerAddress={ownerAddress}
-                  ownerEnsName={ownerEnsName}
-                  ownerExplorerBaseUrl={ownerExplorerBaseUrl}
-                />
-              ) : null}
+              <LightCandleButton
+                key={urnId}
+                urnId={urnId}
+                initialCount={candleCount}
+                className="-ml-1"
+              />
             </header>
 
-            <section className="space-y-3">
-              <h2 className="text-sm font-semibold tracking-tight text-foreground">
-                Traits
-              </h2>
-              <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {attributes.map((attr) => {
-                  const { short, full } = formatTraitDisplay(attr);
-                  const isCrackedYes =
-                    attr.trait_type === "Cracked" && attr.value === "Yes";
-
-                  if (attr.trait_type === "Urn address") {
-                    return (
-                      <li key={attr.trait_type}>
-                        <UrnAddressTraitCard
-                          label={attr.trait_type}
-                          displayShort={short}
-                          fullAddress={attr.value}
-                        />
-                      </li>
-                    );
-                  }
-
-                  return (
-                    <li key={attr.trait_type}>
-                      <div
-                        className="flex h-full flex-col rounded-xl border border-border bg-card/80 px-4 py-3 shadow-sm backdrop-blur-sm transition-colors hover:bg-card"
-                        title={full !== short ? full : undefined}
-                      >
-                        <span className="text-[0.65rem] font-medium tracking-wider text-muted-foreground uppercase">
-                          {attr.trait_type}
-                        </span>
-                        <span
-                          className={`mt-1 font-mono text-sm font-medium break-all sm:text-base ${
-                            isCrackedYes
-                              ? "text-destructive"
-                              : "text-foreground"
-                          }`}
-                        >
-                          {short}
-                        </span>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
+            <UrnVaultFundSection
+              tbaAddress={tbaAddress}
+              chainName={chainName}
+              explorerBaseUrl={ownerExplorerBaseUrl}
+              excludeSendSelfNft={{
+                contractAddress: CRYPTOURNS_CONTRACT.address,
+                tokenId: String(urnId),
+              }}
+            />
           </div>
         </div>
+
+        <UrnIndexedAssetsSection
+          urnId={urnId}
+          explorerBaseUrl={ownerExplorerBaseUrl}
+          coins={indexedCoins}
+          nfts={indexedNfts}
+        />
       </div>
     </main>
   );

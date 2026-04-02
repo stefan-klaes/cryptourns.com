@@ -6,4 +6,7 @@ export type Asset = {
   tokenId: string;
   type: AssetType;
   quantity: number;
+  name: string | null;
+  imageUrl: string | null;
+  collectionName: string | null;
 };

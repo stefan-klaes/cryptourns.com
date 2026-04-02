@@ -1,3 +1,4 @@
+import { buildUrnImageCacheHash } from "@/lib/urn/urnImageCacheHash";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -16,7 +17,12 @@ export function UrnCard({
   candleCount,
   cracked,
 }: UrnCardProps) {
-  const imageSrc = `/api/urn/${urnId}/image`;
+  const imageSrc = `/api/urn/${urnId}/image?h=${buildUrnImageCacheHash({
+    nftCount,
+    coinCount,
+    candleCount,
+    cracked,
+  })}`;
   const title = `Cryptourn #${urnId}`;
 
   return (

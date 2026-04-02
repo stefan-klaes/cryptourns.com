@@ -4,15 +4,18 @@ import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Address } from "viem";
-import { getAddress, isAddress } from "viem";
 import { useAccount } from "wagmi";
 
 import { AddressList } from "@/components/mint/AddressList";
 import { MintProgressDialog } from "@/components/mint/MintProgressDialog";
 import { PriceSummary } from "@/components/mint/PriceSummary";
-import { UrnRenderer } from "@/components/mint/UrnRenderer";
+import { UrnMintHeroPreview } from "@/components/urn/UrnMintHeroPreview";
 import { Button } from "@/components/ui/button";
 import { useMint } from "@/hooks/useMint";
+import {
+  REFERRAL_SESSION_KEY,
+  parseReferralAddress,
+} from "@/lib/referral/referralSession";
 import { useCryptourns } from "@/providers/CryptournsProvider";
 
 export function MintPageClient() {
@@ -41,15 +44,25 @@ export function MintPageClient() {
   useEffect(() => {
     setEmptyMosaicSeed(crypto.randomUUID());
   }, []);
-  const referralFromQuery = useMemo((): Address | undefined => {
-    const raw = searchParams.get("ref")?.trim();
-    if (!raw || !isAddress(raw)) return undefined;
-    try {
-      return getAddress(raw);
-    } catch {
-      return undefined;
-    }
+  const referralFromQuery = useMemo(
+    () => parseReferralAddress(searchParams.get("ref")),
+    [searchParams],
+  );
+
+  const [referralFromSession, setReferralFromSession] = useState<
+    Address | undefined
+  >();
+  useEffect(() => {
+    setReferralFromSession(
+      parseReferralAddress(
+        typeof window !== "undefined"
+          ? sessionStorage.getItem(REFERRAL_SESSION_KEY)
+          : null,
+      ),
+    );
   }, [searchParams]);
+
+  const activeReferral = referralFromQuery ?? referralFromSession;
 
   const connectedAddressNormalized = address?.toLowerCase() ?? null;
   const addresses = useMemo(() => {
@@ -99,7 +112,7 @@ export function MintPageClient() {
       return;
     }
     if (addresses.length === 0 || mintPaused) return;
-    void mint(addresses, referralFromQuery);
+    void mint(addresses, activeReferral);
   };
 
   const handleComplete = () => {
@@ -115,20 +128,11 @@ export function MintPageClient() {
     <>
       <div className="grid grid-cols-1 items-start gap-8 md:grid-cols-2">
         {/* Left column — Preview */}
-        <div className="mx-auto flex w-full max-w-xs flex-col gap-2 md:max-w-none">
-          <div className="relative w-full">
-            <UrnRenderer
-              assetCount={0}
-              candleCount={0}
-              seed={emptyMosaicSeed ?? undefined}
-              className="w-full"
-            />
-          </div>
-          <p className="text-center text-xs leading-relaxed text-primary md:text-left">
-            New urns start as neutral grey stone. Sending the first NFT or
-            tokens into the urn&apos;s account reveals its unique on-chain
-            palette.
-          </p>
+        <div className="mx-auto flex w-full max-w-xs flex-col md:max-w-none">
+          <UrnMintHeroPreview
+            variant="compact"
+            emptySeed={emptyMosaicSeed ?? undefined}
+          />
         </div>
 
         {/* Right column — Mint form */}
@@ -140,7 +144,7 @@ export function MintPageClient() {
             <p className="mt-1 text-sm text-muted-foreground">
               Mint unique on-chain urns to your wallet or gift them to others.
             </p>
-            {referralFromQuery ? (
+            {activeReferral ? (
               <p className="mt-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
                 Referral link active — the referrer earns a share of this mint
                 when you complete checkout.

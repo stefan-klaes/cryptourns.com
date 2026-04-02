@@ -1,5 +1,6 @@
 import { AssetType } from "@/generated/prisma";
 import type { UrnAttributes, UrnMetadata } from "@/lib/urn/UrnMetadata";
+import { buildUrnImageCacheHash } from "@/lib/urn/urnImageCacheHash";
 
 export const urnListInclude = {
   assets: {
@@ -29,6 +30,12 @@ export function toUrnMetadata(urn: UrnWithListInclude): UrnMetadata {
 
   const candleCount = urn._count.candles;
   const cracked = urn.cracked ? "Yes" : "No";
+  const imageHash = buildUrnImageCacheHash({
+    nftCount: nfts,
+    coinCount: coins,
+    candleCount,
+    cracked: urn.cracked,
+  });
   const attributes: UrnAttributes = [
     { trait_type: "NFTs", value: nfts, display_type: "number" },
     { trait_type: "Coins", value: coins, display_type: "number" },
@@ -41,7 +48,8 @@ export function toUrnMetadata(urn: UrnWithListInclude): UrnMetadata {
     tokenId: urnId,
     name: `Cryptourn #${urnId}`,
     description: `Cryptourn urn #${urnId}. Token-bound account holds ${nfts} NFT${nfts === 1 ? "" : "s"}, ${coins} coin${coins === 1 ? "" : "s"}, and ${candleCount} candle${candleCount === 1 ? "" : "s"} (indexed totals).`,
-    image: `/api/urn/image/cryptourn-${urnId}.png`,
+    /** `h` fingerprints assets + candles + cracked so image URL busts when any change. */
+    image: `/api/urn/image/cryptourn-${urnId}.png?h=${imageHash}`,
     attributes,
   };
 }

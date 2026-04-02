@@ -83,6 +83,11 @@ export function MobileNavMenu({ links }: MobileNavMenuProps) {
               </Link>
             </DrawerClose>
           ))}
+          <DrawerClose asChild>
+            <Link href={"/account" as Route} className={drawerLinkClass}>
+              Account
+            </Link>
+          </DrawerClose>
         </nav>
       </DrawerContent>
     </Drawer>

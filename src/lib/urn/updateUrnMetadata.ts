@@ -4,8 +4,6 @@ import { getCryptournMintDetails } from "@/lib/clients/indexer/services/getCrypt
 import { getNfts } from "@/lib/clients/indexer/services/getNfts.service";
 import { getTokenboundAccount } from "@/lib/clients/indexer/services/getTokenboundAccount.service";
 import { isUrnCracked } from "@/lib/clients/indexer/services/isUrnCracked.service";
-import { CRYPTOURNS_CONTRACT } from "@/lib/contract/cryptourns.contract";
-import { isEqualAddress } from "@/lib/utils/isEqualAddress";
 
 /**
  * Ensures a {@link Urn} row exists for the on-chain token id, fetches NFTs held by its TBA
@@ -33,8 +31,6 @@ export async function updateUrnMetadata(urnId: number): Promise<void> {
   const rows: (Asset & { urnId: number })[] = [];
 
   for (const asset of assets) {
-    if (isEqualAddress(asset.contractAddress, CRYPTOURNS_CONTRACT.address))
-      continue;
     rows.push({ urnId: urnId, ...asset });
   }
 

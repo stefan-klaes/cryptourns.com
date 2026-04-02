@@ -67,14 +67,16 @@ export function ResponsiveSheet({
           )}
         >
           {title ? (
-            <SheetHeader className="shrink-0 text-left">
-              <SheetTitle>{title}</SheetTitle>
+            <SheetHeader className="shrink-0 space-y-1 border-border/60 border-b px-4 pt-1 pr-12 pb-3 text-left">
+              <SheetTitle className="text-base">{title}</SheetTitle>
               {description ? (
-                <SheetDescription>{description}</SheetDescription>
+                <SheetDescription className="text-muted-foreground text-xs leading-relaxed">
+                  {description}
+                </SheetDescription>
               ) : null}
             </SheetHeader>
           ) : null}
-          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4 pt-2 text-foreground">
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-3 text-foreground">
             {children}
           </div>
           {footer ? (
@@ -94,10 +96,12 @@ export function ResponsiveSheet({
         )}
       >
         {title ? (
-          <DrawerHeader className="relative shrink-0 border-border border-b !text-left">
-            <DrawerTitle>{title}</DrawerTitle>
+          <DrawerHeader className="relative shrink-0 space-y-1 border-border/60 border-b px-4 pt-1 pr-12 pb-3 !text-left">
+            <DrawerTitle className="text-base">{title}</DrawerTitle>
             {description ? (
-              <DrawerDescription>{description}</DrawerDescription>
+              <DrawerDescription className="text-muted-foreground text-xs leading-relaxed">
+                {description}
+              </DrawerDescription>
             ) : null}
             <DrawerClose asChild>
               <Button
@@ -112,7 +116,7 @@ export function ResponsiveSheet({
             </DrawerClose>
           </DrawerHeader>
         ) : null}
-        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4 pt-2 text-foreground">
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-3 text-foreground">
           {children}
         </div>
         {footer ? (

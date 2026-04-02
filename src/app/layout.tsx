@@ -1,8 +1,11 @@
 import { Navigation } from "@/components/Navigation";
+import { ReferralRefCapture } from "@/components/referral/ReferralRefCapture";
+import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { Web3Provider } from "@/providers/Web3Provider";
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Geist, Geist_Mono, Roboto } from "next/font/google";
 import "./globals.css";
 
@@ -43,10 +46,14 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col dark">
         <TooltipProvider delay={200}>
           <Web3Provider>
+            <Suspense fallback={null}>
+              <ReferralRefCapture />
+            </Suspense>
             <Navigation />
             <div className="flex min-h-0 flex-1 flex-col pt-14 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
               {children}
             </div>
+            <Toaster />
           </Web3Provider>
         </TooltipProvider>
       </body>

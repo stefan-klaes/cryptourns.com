@@ -7,6 +7,9 @@ import { useAccount, useBalance, useDisconnect } from "wagmi";
 import { EthereumLogo } from "@/components/brand-icons";
 import { ResponsiveSheet } from "@/components/ResponsiveSheet";
 import { Button } from "@/components/ui/button";
+import { WalletOwnedUrnsPreview } from "@/components/wallet/WalletOwnedUrnsPreview";
+import type { Route } from "next";
+import Link from "next/link";
 import { formatEthereum } from "@/lib/utils/formatEthereum";
 
 function WalletAddressRow({ address }: { address: string }) {
@@ -75,14 +78,29 @@ export function WalletDetailSheet({
       title="Wallet"
       description={`Connected account and balance on ${chain?.name}.`}
       footer={
-        <Button
-          type="button"
-          variant="destructive"
-          className="w-full"
-          onClick={handleDisconnect}
-        >
-          Disconnect
-        </Button>
+        <div className="flex w-full flex-col gap-2">
+          <Button
+            variant="secondary"
+            className="w-full"
+            nativeButton={false}
+            render={
+              <Link
+                href={"/account" as Route}
+                onClick={() => onOpenChange(false)}
+              />
+            }
+          >
+            My account
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            className="w-full"
+            onClick={handleDisconnect}
+          >
+            Disconnect
+          </Button>
+        </div>
       }
     >
       <div className="space-y-4 text-foreground">
@@ -112,6 +130,10 @@ export function WalletDetailSheet({
             <p className="text-sm font-medium text-foreground">—</p>
           )}
         </div>
+        <WalletOwnedUrnsPreview
+          sheetOpen={open}
+          onNavigateAway={() => onOpenChange(false)}
+        />
       </div>
     </ResponsiveSheet>
   );

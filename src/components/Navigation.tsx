@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 const NAV_ITEMS = [
   { href: "/urns", label: "Urns", icon: Box },
   { href: "/mint", label: "Mint", icon: CirclePlus },
-  { href: "/earnings", label: "Earn", icon: HandCoins },
+  { href: "/earn", label: "Earn", icon: HandCoins },
   { href: "/feed", label: "Feed", icon: Newspaper },
 ] as const satisfies readonly {
   href: Route;
