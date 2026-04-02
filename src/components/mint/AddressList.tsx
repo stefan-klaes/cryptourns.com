@@ -3,7 +3,7 @@
 import { Plus } from "lucide-react";
 import { useState } from "react";
 import type { Address } from "viem";
-import { isAddress } from "viem";
+import { getAddress, isAddress } from "viem";
 
 import { AddressRow } from "@/components/mint/AddressRow";
 import { Button } from "@/components/ui/button";
@@ -24,31 +24,76 @@ export function AddressList({
 }: AddressListProps) {
   const [input, setInput] = useState("");
   const [error, setError] = useState("");
+  const [resolving, setResolving] = useState(false);
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     const trimmed = input.trim();
     if (!trimmed) return;
 
-    if (!isAddress(trimmed)) {
-      setError("Invalid Ethereum address");
+    if (isAddress(trimmed)) {
+      const checksummed = getAddress(trimmed);
+      const normalized = checksummed.toLowerCase();
+      if (addresses.some((a) => a.toLowerCase() === normalized)) {
+        setError("Address already added");
+        return;
+      }
+      onAdd(checksummed);
+      setInput("");
+      setError("");
       return;
     }
 
-    const normalized = trimmed.toLowerCase();
-    if (addresses.some((a) => a.toLowerCase() === normalized)) {
-      setError("Address already added");
-      return;
-    }
-
-    onAdd(trimmed as Address);
-    setInput("");
+    setResolving(true);
     setError("");
+    try {
+      const res = await fetch("/api/ens/resolve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimmed }),
+      });
+      const data: unknown = await res.json().catch(() => null);
+      const addrRaw =
+        res.ok &&
+        data &&
+        typeof data === "object" &&
+        "address" in data &&
+        typeof (data as { address: unknown }).address === "string"
+          ? (data as { address: string }).address
+          : null;
+      const resolved =
+        addrRaw && isAddress(addrRaw) ? getAddress(addrRaw) : null;
+      const message =
+        data &&
+        typeof data === "object" &&
+        "error" in data &&
+        typeof (data as { error: unknown }).error === "string"
+          ? (data as { error: string }).error
+          : "Could not resolve ENS name";
+
+      if (!resolved) {
+        setError(message);
+        return;
+      }
+
+      const normalized = resolved.toLowerCase();
+      if (addresses.some((a) => a.toLowerCase() === normalized)) {
+        setError("Address already added");
+        return;
+      }
+
+      onAdd(resolved);
+      setInput("");
+    } catch {
+      setError("ENS lookup failed");
+    } finally {
+      setResolving(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      handleAdd();
+      void handleAdd();
     }
   };
 
@@ -75,7 +120,7 @@ export function AddressList({
       <div className="space-y-1.5">
         <div className="flex gap-2">
           <Input
-            placeholder="0x…"
+            placeholder="0x… or name.eth"
             value={input}
             onChange={(e) => {
               setInput(e.target.value);
@@ -83,16 +128,17 @@ export function AddressList({
             }}
             onKeyDown={handleKeyDown}
             className="flex-1 font-mono text-sm"
+            disabled={resolving}
           />
           <Button
             type="button"
             variant="outline"
             size="default"
-            onClick={handleAdd}
-            disabled={!input.trim()}
+            onClick={() => void handleAdd()}
+            disabled={!input.trim() || resolving}
           >
             <Plus data-icon="inline-start" />
-            Add
+            {resolving ? "…" : "Add"}
           </Button>
         </div>
         {error && (
