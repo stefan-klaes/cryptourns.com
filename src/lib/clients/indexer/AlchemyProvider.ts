@@ -2,7 +2,7 @@ import { AssetType } from "@/generated/prisma";
 import { isCryptournsMainnet } from "@/lib/chains/cryptournsChain";
 import { ZERO_ADDRESS } from "@/lib/constants/zeroAddress";
 import { CRYPTOURNS_CONTRACT } from "@/lib/contract/cryptourns.contract";
-import { getAddress, type Address } from "viem";
+import { getAddress, isAddress, type Address } from "viem";
 import type { Asset } from "./Asset";
 
 type RawAlchemyMedia = {
@@ -32,6 +32,11 @@ type RawAlchemyOwnedNft = {
   metadata?: Record<string, unknown>;
   /** Sometimes a stringified JSON object from Alchemy. */
   rawMetadata?: unknown;
+  /** Present when getNFTs uses `orderBy=transferTime`. */
+  acquiredAt?: {
+    blockTimestamp?: string | number;
+    blockNumber?: string;
+  };
 };
 
 /** Normalize Alchemy `image` / metadata image fields to a single URL string. */
@@ -140,6 +145,39 @@ export function inferAlchemyNftStandard(
   return null;
 }
 
+/**
+ * Alchemy `acquiredAt.blockTimestamp`: ISO 8601 string, or Unix time as seconds
+ * (typical ~1e9–1e10) or milliseconds (~1e12+). Seconds wrongly passed to
+ * `new Date(n)` land in Jan 1970; numeric `0` becomes epoch midnight.
+ */
+export function coerceAlchemyBlockTimestampToDate(ts: unknown): Date | null {
+  if (ts == null) return null;
+  if (typeof ts === "number") {
+    if (!Number.isFinite(ts) || ts <= 0) return null;
+    const ms = ts < 1e12 ? ts * 1000 : ts;
+    const d = new Date(ms);
+    return Number.isNaN(d.getTime()) || d.getTime() === 0 ? null : d;
+  }
+  if (typeof ts === "string") {
+    const s = ts.trim();
+    if (s.length === 0) return null;
+    if (/^\d+$/.test(s)) {
+      const n = Number(s);
+      if (!Number.isFinite(n) || n <= 0) return null;
+      const ms = n < 1e12 ? n * 1000 : n;
+      const d = new Date(ms);
+      return Number.isNaN(d.getTime()) || d.getTime() === 0 ? null : d;
+    }
+    const d = new Date(s);
+    return Number.isNaN(d.getTime()) || d.getTime() === 0 ? null : d;
+  }
+  return null;
+}
+
+function parseAlchemyAcquiredAtDate(raw: RawAlchemyOwnedNft): Date | null {
+  return coerceAlchemyBlockTimestampToDate(raw.acquiredAt?.blockTimestamp);
+}
+
 export function parseAlchemyOwnedNft(raw: RawAlchemyOwnedNft): Asset | null {
   const addr = raw.contract?.address;
   if (typeof addr !== "string" || !addr.startsWith("0x")) return null;
@@ -165,6 +203,7 @@ export function parseAlchemyOwnedNft(raw: RawAlchemyOwnedNft): Asset | null {
     name: null,
     imageUrl: null,
     collectionName: null,
+    sentToUrn: parseAlchemyAcquiredAtDate(raw),
   };
 }
 
@@ -177,6 +216,7 @@ export type AlchemyNftPortfolioRow = {
   name: string | null;
   image: string | null;
   collectionName: string | null;
+  sentToUrn: Date | null;
 };
 
 function pickNftDisplayName(raw: RawAlchemyOwnedNft): string | null {
@@ -249,7 +289,19 @@ export function parseAlchemyOwnedNftPortfolio(
     name: pickNftDisplayName(raw),
     image: pickNftImage(raw),
     collectionName: pickNftCollectionName(raw),
+    sentToUrn: base.sentToUrn,
   };
+}
+
+function mergeSentToUrn(a: Date | null, b: Date | null): Date | null {
+  if (a && b) return a.getTime() <= b.getTime() ? a : b;
+  return a ?? b;
+}
+
+function sentToUrnEquals(a: Date | null, b: Date | null): boolean {
+  if (a === null && b === null) return true;
+  if (a === null || b === null) return false;
+  return a.getTime() === b.getTime();
 }
 
 function mergePortfolioNftRows(
@@ -269,16 +321,18 @@ function mergePortfolioNftRows(
       map.set(k, r);
       continue;
     }
-    if (
+    const mergedSent = mergeSentToUrn(existing.sentToUrn, r.sentToUrn);
+    const needsDisplay =
       (!existing.name && r.name) ||
       (!existing.image && r.image) ||
-      (!existing.collectionName && r.collectionName)
-    ) {
+      (!existing.collectionName && r.collectionName);
+    if (needsDisplay || !sentToUrnEquals(existing.sentToUrn, mergedSent)) {
       map.set(k, {
         ...existing,
         name: existing.name || r.name || null,
         image: existing.image || r.image || null,
         collectionName: existing.collectionName || r.collectionName || null,
+        sentToUrn: mergedSent,
       });
     }
   }
@@ -405,12 +459,19 @@ export class AlchemyProvider {
     owner: string,
     pageKey: string | undefined,
     withMetadata: boolean,
-    options?: { includeSpam?: boolean; contractAddresses?: Address[] },
+    options?: {
+      includeSpam?: boolean;
+      contractAddresses?: Address[];
+      orderByTransferTime?: boolean;
+    },
   ): Promise<AlchemyGetNftsResponse> {
     const url = new URL(`https://${this.host}/nft/v2/${this.apiKey}/getNFTs`);
     url.searchParams.set("owner", owner);
     url.searchParams.set("pageSize", "100");
     url.searchParams.set("withMetadata", withMetadata ? "true" : "false");
+    if (options?.orderByTransferTime) {
+      url.searchParams.set("orderBy", "transferTime");
+    }
     if (options?.includeSpam) {
       url.searchParams.set("includeSpam", "true");
     }
@@ -440,7 +501,9 @@ export class AlchemyProvider {
     const portfolio: AlchemyNftPortfolioRow[] = [];
     let pageKey: string | undefined;
     do {
-      const res = await this.fetchNftsPage(owner, pageKey, true, undefined);
+      const res = await this.fetchNftsPage(owner, pageKey, true, {
+        orderByTransferTime: true,
+      });
       for (const raw of res.ownedNfts) {
         const parsed = parseAlchemyOwnedNftPortfolio(raw);
         if (parsed) portfolio.push(parsed);
@@ -453,20 +516,32 @@ export class AlchemyProvider {
       ? await this.enrichPortfolioRowsIfSparse(portfolio)
       : portfolio;
 
-    return rows.map((r) => ({
-      contractAddress: r.contractAddress.toLowerCase(),
-      tokenId: r.tokenId,
-      type: r.standard === "ERC721" ? AssetType.ERC721 : AssetType.ERC1155,
-      quantity: r.quantity,
-      name: r.name,
-      imageUrl: r.image,
-      collectionName: r.collectionName,
-    }));
+    const inboundByKey =
+      await this.fetchLatestInboundNftTimestampsByAssetKey(owner);
+
+    return rows.map((r) => {
+      const key = `${r.contractAddress.toLowerCase()}-${r.tokenId}`;
+      const sentToUrn = inboundByKey.get(key) ?? r.sentToUrn;
+      return {
+        contractAddress: r.contractAddress.toLowerCase(),
+        tokenId: r.tokenId,
+        type: r.standard === "ERC721" ? AssetType.ERC721 : AssetType.ERC1155,
+        quantity: r.quantity,
+        name: r.name,
+        imageUrl: r.image,
+        collectionName: r.collectionName,
+        sentToUrn,
+      };
+    });
   }
 
   private async fetchAllPortfolioPages(
     owner: string,
-    options?: { includeSpam?: boolean; contractAddresses?: Address[] },
+    options?: {
+      includeSpam?: boolean;
+      contractAddresses?: Address[];
+      orderByTransferTime?: boolean;
+    },
   ): Promise<AlchemyNftPortfolioRow[]> {
     const out: AlchemyNftPortfolioRow[] = [];
     let pageKey: string | undefined;
@@ -518,6 +593,33 @@ export class AlchemyProvider {
   async getNftsForPortfolio(owner: string): Promise<AlchemyNftPortfolioRow[]> {
     const { merged } = await this.getPortfolioNftSlices(owner);
     return merged;
+  }
+
+  /**
+   * Single-token metadata (image, name) via `getNFTMetadata`.
+   * Used for feed and other surfaces when DB `imageUrl` is missing.
+   */
+  async getNftMetadataDisplay(
+    contractAddress: string,
+    tokenId: string,
+    type: AssetType,
+  ): Promise<{
+    name: string | null;
+    image: string | null;
+    collectionName: string | null;
+  }> {
+    if (!isAddress(contractAddress)) {
+      return { name: null, image: null, collectionName: null };
+    }
+    if (type !== AssetType.ERC721 && type !== AssetType.ERC1155) {
+      return { name: null, image: null, collectionName: null };
+    }
+    const standard = type === AssetType.ERC721 ? "ERC721" : "ERC1155";
+    return this.fetchGetNFTMetadataEnrichment(
+      getAddress(contractAddress),
+      tokenId,
+      standard,
+    );
   }
 
   private async fetchGetNFTMetadataEnrichment(
@@ -670,6 +772,120 @@ export class AlchemyProvider {
     return Number(data.totalSupply);
   }
 
+  /**
+   * Block time for an asset transfer row (`withMetadata` or `eth_getBlockByNumber`).
+   * `blockCache` avoids duplicate RPCs for transfers in the same block.
+   */
+  private async resolveBlockTimeFromTransfer(
+    blockNum: string,
+    metadata: { blockTimestamp?: string } | undefined,
+    blockCache: Map<string, Date>,
+  ): Promise<Date | null> {
+    const fromMeta = coerceAlchemyBlockTimestampToDate(metadata?.blockTimestamp);
+    if (fromMeta) return fromMeta;
+    const cached = blockCache.get(blockNum);
+    if (cached) return cached;
+    type EthBlock = { timestamp: string };
+    const block = await this.postJsonRpc<EthBlock | null>(
+      "eth_getBlockByNumber",
+      [blockNum, false],
+    );
+    if (!block?.timestamp) return null;
+    const d = new Date(Number.parseInt(block.timestamp, 16) * 1000);
+    if (Number.isNaN(d.getTime()) || d.getTime() === 0) return null;
+    blockCache.set(blockNum, d);
+    return d;
+  }
+
+  /**
+   * Latest inbound ERC-721 / ERC-1155 transfer time per `(contract, tokenId)` for `toAddress === tba`.
+   * Used when NFT `getNFTs` omits `acquiredAt` (common on v2 / testnets).
+   */
+  private async fetchLatestInboundNftTimestampsByAssetKey(
+    tba: string,
+  ): Promise<Map<string, Date>> {
+    const tbaLower = tba.toLowerCase();
+    type AssetTransfer = {
+      blockNum: string;
+      to?: string | null;
+      category: string;
+      erc721TokenId?: string | null;
+      tokenId?: string | null;
+      rawContract?: { address?: string | null };
+      metadata?: { blockTimestamp?: string };
+    };
+    type TransfersPage = {
+      transfers: AssetTransfer[];
+      pageKey?: string;
+    };
+
+    const map = new Map<string, Date>();
+    const blockCache = new Map<string, Date>();
+    let pageKey: string | undefined;
+    let pages = 0;
+    const maxPages = 100;
+
+    do {
+      pages += 1;
+      if (pages > maxPages) {
+        console.warn(
+          `[Alchemy] inbound NFT transfer scan capped at ${maxPages} pages for ${tba}`,
+        );
+        break;
+      }
+
+      const params: Record<string, unknown> = {
+        fromBlock: "0x0",
+        toBlock: "latest",
+        toAddress: getAddress(tba),
+        category: ["erc721", "erc1155"],
+        excludeZeroValue: false,
+        order: "asc",
+        withMetadata: true,
+        maxCount: "0x3e8",
+      };
+      if (pageKey) params.pageKey = pageKey;
+
+      const result = await this.postJsonRpc<TransfersPage>(
+        "alchemy_getAssetTransfers",
+        [params],
+      );
+
+      for (const t of result.transfers) {
+        if (!t.blockNum) continue;
+        const cat = (t.category ?? "").toLowerCase();
+        if (cat !== "erc721" && cat !== "erc1155") continue;
+        if ((t.to ?? "").toLowerCase() !== tbaLower) continue;
+
+        const addr = t.rawContract?.address;
+        if (typeof addr !== "string" || !addr.startsWith("0x")) continue;
+        const contractLower = addr.toLowerCase();
+
+        const tidRaw = t.tokenId ?? t.erc721TokenId;
+        if (tidRaw == null || String(tidRaw).length === 0) continue;
+        let tokenCanon: string;
+        try {
+          tokenCanon = BigInt(String(tidRaw)).toString();
+        } catch {
+          continue;
+        }
+
+        const key = `${contractLower}-${tokenCanon}`;
+        const d = await this.resolveBlockTimeFromTransfer(
+          t.blockNum,
+          t.metadata,
+          blockCache,
+        );
+        if (d) map.set(key, d);
+      }
+
+      const next = result.pageKey?.trim();
+      pageKey = next && next.length > 0 ? next : undefined;
+    } while (pageKey);
+
+    return map;
+  }
+
   private async postJsonRpc<TResult>(
     method: string,
     params: unknown[],
@@ -792,22 +1008,13 @@ export class AlchemyProvider {
       return null;
     }
 
-    type EthBlock = { timestamp: string };
-
-    let mintedAt: Date | undefined;
-    const iso = mint.metadata?.blockTimestamp;
-    if (iso) {
-      const d = new Date(iso);
-      if (!Number.isNaN(d.getTime())) mintedAt = d;
-    }
-    if (!mintedAt) {
-      const block = await this.postJsonRpc<EthBlock | null>(
-        "eth_getBlockByNumber",
-        [mint.blockNum, false],
-      );
-      if (!block?.timestamp) return null;
-      mintedAt = new Date(Number.parseInt(block.timestamp, 16) * 1000);
-    }
+    const blockCache = new Map<string, Date>();
+    const mintedAt = await this.resolveBlockTimeFromTransfer(
+      mint.blockNum,
+      mint.metadata,
+      blockCache,
+    );
+    if (!mintedAt) return null;
 
     return {
       mintTx: mint.hash,

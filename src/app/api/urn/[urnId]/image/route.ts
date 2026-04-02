@@ -30,14 +30,19 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: "Urn not found" }, { status: 404 });
   }
 
+  const forceEmpty =
+    request.nextUrl.searchParams.get("variant") === "empty";
+
   let nftUnits = 0;
-  for (const a of urn.assets) {
-    if (a.type !== AssetType.ERC20) nftUnits += a.quantity;
+  if (!forceEmpty) {
+    for (const a of urn.assets) {
+      if (a.type !== AssetType.ERC20) nftUnits += a.quantity;
+    }
   }
 
   const svgString = generateUrnSvgString({
-    assetCount: nftUnits,
-    candleCount: urn._count.candles,
+    assetCount: forceEmpty ? 0 : nftUnits,
+    candleCount: forceEmpty ? 0 : urn._count.candles,
     seed: `cryptourn-${urnId}`,
   });
 

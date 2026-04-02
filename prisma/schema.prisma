@@ -34,12 +34,14 @@ model Asset {
   name             String?
   imageUrl         String?
   collectionName   String?
+  sentToUrn        DateTime?
   createdAt        DateTime  @default(now())
 
   urn Urn @relation(fields: [urnId], references: [id], onDelete: Cascade)
 
   @@unique([urnId, contractAddress, tokenId])
   @@index([urnId])
+  @@index([contractAddress, type, tokenId])
 }
 
 model Urn {

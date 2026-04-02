@@ -1,4 +1,4 @@
--- AlterTable
-ALTER TABLE "Asset" ADD COLUMN     "collectionName" TEXT,
-ADD COLUMN     "imageUrl" TEXT,
-ADD COLUMN     "name" TEXT;
+-- AlterTable (IF NOT EXISTS: safe when columns were added outside migrate history)
+ALTER TABLE "Asset" ADD COLUMN IF NOT EXISTS "collectionName" TEXT;
+ALTER TABLE "Asset" ADD COLUMN IF NOT EXISTS "imageUrl" TEXT;
+ALTER TABLE "Asset" ADD COLUMN IF NOT EXISTS "name" TEXT;

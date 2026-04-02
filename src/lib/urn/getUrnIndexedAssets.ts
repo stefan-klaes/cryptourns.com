@@ -1,7 +1,7 @@
 import { AssetType } from "@/generated/prisma";
 import { db } from "@/lib/clients/db";
 
-/** Serializable rows for the urn detail vault assets UI. */
+/** Serializable rows for the urn detail vault assets UI (client-safe dates as ISO). */
 export type UrnIndexedAssetRow = {
   contractAddress: string;
   tokenId: string;
@@ -10,6 +10,8 @@ export type UrnIndexedAssetRow = {
   name: string | null;
   imageUrl: string | null;
   collectionName: string | null;
+  /** When this asset was last indexed as received by the vault; ISO 8601 or null. */
+  sentToUrn: string | null;
 };
 
 export type UrnIndexedAssetsBuckets = {
@@ -34,6 +36,7 @@ export async function getUrnIndexedAssets(
       name: true,
       imageUrl: true,
       collectionName: true,
+      sentToUrn: true,
     },
   });
 
@@ -48,10 +51,23 @@ export async function getUrnIndexedAssets(
       name: r.name,
       imageUrl: r.imageUrl,
       collectionName: r.collectionName,
+      sentToUrn: r.sentToUrn?.toISOString() ?? null,
     };
     if (r.type === AssetType.ERC20) coins.push(row);
     else nfts.push(row);
   }
+
+  nfts.sort((a, b) => {
+    if (a.sentToUrn == null && b.sentToUrn == null) return 0;
+    if (a.sentToUrn == null) return 1;
+    if (b.sentToUrn == null) return -1;
+    const tb = new Date(b.sentToUrn).getTime();
+    const ta = new Date(a.sentToUrn).getTime();
+    if (tb !== ta) return tb - ta;
+    return `${a.contractAddress}-${a.tokenId}`.localeCompare(
+      `${b.contractAddress}-${b.tokenId}`,
+    );
+  });
 
   return { coins, nfts };
 }

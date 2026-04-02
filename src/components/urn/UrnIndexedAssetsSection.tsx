@@ -1,6 +1,7 @@
 "use client";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { formatSentToUrnRelative } from "@/lib/time/formatSentToUrn";
 import type { UrnIndexedAssetRow } from "@/lib/urn/getUrnIndexedAssets";
 import Image from "next/image";
 import { getAddress, isAddress } from "viem";
@@ -98,6 +99,7 @@ export function UrnIndexedAssetsSection({
                 const title =
                   row.name?.trim() ||
                   `Token #${row.tokenId}`;
+                const sentMeta = formatSentToUrnRelative(row.sentToUrn);
                 return (
                   <li
                     key={`${row.contractAddress}-${row.tokenId}-${row.type}`}
@@ -141,6 +143,24 @@ export function UrnIndexedAssetsSection({
                           {row.collectionName.trim()}
                         </p>
                       ) : null}
+                      {sentMeta ? (
+                        <p className="text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground/80">
+                            In urn since
+                          </span>{" "}
+                          <time
+                            dateTime={sentMeta.dateTime}
+                            title={sentMeta.absoluteTitle}
+                            className="text-muted-foreground"
+                          >
+                            {sentMeta.relative}
+                          </time>
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground/80 italic">
+                          In urn since unknown — refresh metadata to index.
+                        </p>
+                      )}
                       <a
                         href={href}
                         target="_blank"

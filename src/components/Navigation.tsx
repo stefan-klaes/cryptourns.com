@@ -1,7 +1,7 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
-import { Box, CirclePlus, HandCoins, Newspaper } from "lucide-react";
+import { Box, CirclePlus, HandCoins, Layers, Newspaper } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
   { href: "/urns", label: "Urns", icon: Box },
+  { href: "/collections", label: "Collections", icon: Layers },
   { href: "/mint", label: "Mint", icon: CirclePlus },
   { href: "/earn", label: "Earn", icon: HandCoins },
   { href: "/feed", label: "Feed", icon: Newspaper },
