@@ -17,7 +17,6 @@ import {
 import { Button, buttonVariants } from "@/components/ui/button";
 import { getCryptournsChainConfig } from "@/lib/chains/cryptournsChain";
 import { CRYPTOURNS_CONTRACT } from "@/lib/contract/cryptourns.contract";
-import { useReferralClaimedTotal } from "@/hooks/useReferralClaimedTotal";
 import { formatEthereum } from "@/lib/utils/formatEthereum";
 import { cn } from "@/lib/utils";
 
@@ -67,13 +66,6 @@ export function EarningsPageClient() {
     query: { enabled: Boolean(address) },
   });
 
-  const {
-    data: claimedWei,
-    isLoading: claimedLoading,
-    isError: claimedError,
-    refetch: refetchClaimed,
-  } = useReferralClaimedTotal(address);
-
   const defaultShare =
     defaultShareRaw !== undefined ? Number(defaultShareRaw) : null;
   const userShare =
@@ -105,10 +97,9 @@ export function EarningsPageClient() {
   useEffect(() => {
     if (!claimReceiptSuccess || !claimTxHash) return;
     void refetchClaimable();
-    void refetchClaimed();
     setClaimTxHash(undefined);
     setClaimPending(false);
-  }, [claimReceiptSuccess, claimTxHash, refetchClaimable, refetchClaimed]);
+  }, [claimReceiptSuccess, claimTxHash, refetchClaimable]);
 
   useEffect(() => {
     if (!claimReceiptError || !claimTxHash) return;
@@ -150,9 +141,6 @@ export function EarningsPageClient() {
 
   const claimableDisplay =
     claimableWei !== undefined ? formatEthereum(claimableWei, 4) : "—";
-
-  const claimedDisplay =
-    claimedWei !== undefined ? formatEthereum(claimedWei, 4) : null;
 
   return (
     <div className="mx-auto max-w-2xl space-y-10">
@@ -237,7 +225,7 @@ export function EarningsPageClient() {
             Your dashboard
           </h2>
 
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="rounded-lg border border-border p-4">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Your referral rate
@@ -252,7 +240,7 @@ export function EarningsPageClient() {
                 )}
               </p>
             </div>
-            <div className="flex flex-col rounded-lg border border-border p-4 md:col-span-1">
+            <div className="flex flex-col rounded-lg border border-border p-4">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Available to claim
               </p>
@@ -264,8 +252,8 @@ export function EarningsPageClient() {
                 )}
               </p>
               <p className="mt-2 text-xs text-muted-foreground">
-                Accrued referral balance on the contract. Claim sends ETH to
-                your connected address.
+                Only unclaimed balances appear here. Amounts you already
+                claimed were transferred on-chain.
               </p>
               {claimError ? (
                 <p className="mt-3 text-sm text-destructive">{claimError}</p>
@@ -283,27 +271,6 @@ export function EarningsPageClient() {
               >
                 {claimPending ? "Confirm in wallet…" : "Claim earnings"}
               </Button>
-            </div>
-            <div className="rounded-lg border border-border p-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Total claimed
-              </p>
-              <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">
-                {claimedLoading ? (
-                  <span className="inline-block h-8 w-24 animate-pulse rounded bg-muted" />
-                ) : claimedError ? (
-                  "—"
-                ) : claimedDisplay !== null ? (
-                  `${claimedDisplay} ETH`
-                ) : (
-                  "—"
-                )}
-              </p>
-              <p className="mt-2 text-xs text-muted-foreground">
-                {claimedError
-                  ? "Could not load history (RPC may limit log queries). Set NEXT_PUBLIC_CRYPTOURNS_DEPLOYMENT_BLOCK to your contract deployment block to narrow the search."
-                  : "Sum of past claim transactions for your wallet from on-chain events."}
-              </p>
             </div>
           </div>
 
