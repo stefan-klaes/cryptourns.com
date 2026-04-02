@@ -1,8 +1,21 @@
 import { AlchemyProvider } from "@/lib/clients/indexer/AlchemyProvider";
+import {
+  UrnsListPagination,
+  UrnsListSortBar,
+} from "@/components/urn/UrnsListControls";
 import { UrnCard } from "@/components/urn/UrnCard";
-import { findManyUrns } from "@/lib/urn/findManyUrns";
+import { UrnsPageHeader } from "@/components/urn/UrnsPageHeader";
+import { getIndexedVaultTotals } from "@/lib/urn/getIndexedVaultTotals";
+import {
+  countUrns,
+  findManyUrns,
+  parseUrnsListSearchParams,
+  urnsListHref,
+} from "@/lib/urn/findManyUrns";
 import type { UrnMetadata } from "@/lib/urn/UrnMetadata";
+import type { Route } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 function traitNumber(
   attributes: UrnMetadata["attributes"],
@@ -19,15 +32,31 @@ function isCracked(attributes: UrnMetadata["attributes"]): boolean {
 
 export const dynamic = "force-dynamic";
 
-export default async function UrnsPage() {
-  const urns = await findManyUrns();
+type UrnsPageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
 
-  let totalOnChain = 0;
-  try {
-    totalOnChain = await new AlchemyProvider().getCryptournsSupply();
-  } catch {
-    /* optional header stat */
+export default async function UrnsPage({ searchParams }: UrnsPageProps) {
+  const raw = (await searchParams) ?? {};
+  const { page, sort, limit } = parseUrnsListSearchParams(raw);
+
+  const [totalIndexed, vaultTotals, totalOnChain] = await Promise.all([
+    countUrns(),
+    getIndexedVaultTotals(),
+    new AlchemyProvider().getCryptournsSupply().catch(() => 0),
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(totalIndexed / limit));
+  const safePage = Math.min(page, totalPages);
+  if (page !== safePage) {
+    redirect(urnsListHref(sort, safePage) as Route);
   }
+
+  const urns = await findManyUrns({
+    page: safePage,
+    limit,
+    sortBy: sort,
+  });
 
   return (
     <main className="relative min-h-[calc(100vh-4rem)] overflow-x-hidden px-4 py-10 sm:px-6 lg:px-10">
@@ -41,40 +70,14 @@ export default async function UrnsPage() {
       </div>
 
       <div className="mx-auto max-w-6xl">
-        <header className="mb-10 max-w-2xl space-y-3">
-          <p className="text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase">
-            Collection
-          </p>
-          <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-            Urns
-          </h1>
-          <p className="text-sm leading-relaxed text-muted-foreground sm:text-base">
-            Indexed token-bound urns from the database.{" "}
-            <span className="font-medium text-foreground tabular-nums">
-              {urns.length}
-            </span>{" "}
-            {urns.length === 1 ? "urn" : "urns"} synced
-            {totalOnChain > 0 ? (
-              <>
-                {" "}
-                ·{" "}
-                <span className="tabular-nums">{totalOnChain}</span> total
-                minted on-chain
-              </>
-            ) : null}
-            .
-          </p>
-          <p className="text-sm">
-            <Link
-              href="/mint"
-              className="font-medium text-primary underline-offset-4 hover:underline"
-            >
-              Mint an urn
-            </Link>
-          </p>
-        </header>
+        <UrnsPageHeader
+          totalIndexed={totalIndexed}
+          totalOnChain={totalOnChain}
+          assetUnits={vaultTotals.assetUnits}
+          candles={vaultTotals.candles}
+        />
 
-        {urns.length === 0 ? (
+        {totalIndexed === 0 ? (
           <div className="rounded-2xl border border-dashed border-border bg-card/50 px-8 py-16 text-center">
             <p className="text-muted-foreground">
               No urns in the index yet. Open an urn page or run a sync to
@@ -90,22 +93,35 @@ export default async function UrnsPage() {
             </p>
           </div>
         ) : (
-          <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {urns.map((metadata) => {
-              const urnId = metadata.tokenId;
-              return (
-                <li key={urnId}>
-                  <UrnCard
-                    urnId={urnId}
-                    nftCount={traitNumber(metadata.attributes, "NFTs")}
-                    coinCount={traitNumber(metadata.attributes, "Coins")}
-                    candleCount={traitNumber(metadata.attributes, "Candles")}
-                    cracked={isCracked(metadata.attributes)}
-                  />
-                </li>
-              );
-            })}
-          </ul>
+          <>
+            <UrnsListSortBar
+              sort={sort}
+              page={safePage}
+              totalCount={totalIndexed}
+              pageSize={limit}
+            />
+            <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {urns.map((metadata) => {
+                const urnId = metadata.tokenId;
+                return (
+                  <li key={urnId}>
+                    <UrnCard
+                      urnId={urnId}
+                      nftCount={traitNumber(metadata.attributes, "NFTs")}
+                      coinCount={traitNumber(metadata.attributes, "Coins")}
+                      candleCount={traitNumber(metadata.attributes, "Candles")}
+                      cracked={isCracked(metadata.attributes)}
+                    />
+                  </li>
+                );
+              })}
+            </ul>
+            <UrnsListPagination
+              sort={sort}
+              page={safePage}
+              totalPages={totalPages}
+            />
+          </>
         )}
       </div>
     </main>

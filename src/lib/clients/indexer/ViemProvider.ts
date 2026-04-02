@@ -1,7 +1,7 @@
+import { getCryptournsChainConfig } from "@/lib/chains/cryptournsChain";
 import { CRYPTOURNS_CONTRACT } from "@/lib/contract/cryptourns.contract";
 import type { Address, PublicClient } from "viem";
 import { createPublicClient, getAddress, http } from "viem";
-import { mainnet, sepolia } from "viem/chains";
 
 export class ViemProvider {
   readonly name = "Viem" as const;
@@ -21,6 +21,16 @@ export class ViemProvider {
     });
     return getAddress(tbaRaw);
   }
+
+  async getOwnerOf(urnId: number): Promise<Address> {
+    const ownerRaw = await this.client.readContract({
+      address: CRYPTOURNS_CONTRACT.address,
+      abi: CRYPTOURNS_CONTRACT.abi,
+      functionName: "ownerOf",
+      args: [BigInt(urnId)],
+    });
+    return getAddress(ownerRaw);
+  }
 }
 
 function rpcUrl(isMainnet: boolean): string {
@@ -33,9 +43,9 @@ function rpcUrl(isMainnet: boolean): string {
 }
 
 function createCryptournsPublicClient(): PublicClient {
-  const isMainnet = Boolean(process.env.isMainnet);
+  const { chain, isMainnet } = getCryptournsChainConfig();
   return createPublicClient({
-    chain: isMainnet ? mainnet : sepolia,
+    chain,
     transport: http(rpcUrl(isMainnet)),
   });
 }

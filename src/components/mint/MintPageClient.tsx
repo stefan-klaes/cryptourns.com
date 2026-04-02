@@ -1,9 +1,10 @@
 "use client";
 
 import { useConnectModal } from "@rainbow-me/rainbowkit";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Address } from "viem";
+import { getAddress, isAddress } from "viem";
 import { useAccount } from "wagmi";
 
 import { AddressList } from "@/components/mint/AddressList";
@@ -16,6 +17,7 @@ import { useCryptourns } from "@/providers/CryptournsProvider";
 
 export function MintPageClient() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { address, isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
   const {
@@ -39,6 +41,16 @@ export function MintPageClient() {
   useEffect(() => {
     setEmptyMosaicSeed(crypto.randomUUID());
   }, []);
+  const referralFromQuery = useMemo((): Address | undefined => {
+    const raw = searchParams.get("ref")?.trim();
+    if (!raw || !isAddress(raw)) return undefined;
+    try {
+      return getAddress(raw);
+    } catch {
+      return undefined;
+    }
+  }, [searchParams]);
+
   const connectedAddressNormalized = address?.toLowerCase() ?? null;
   const addresses = useMemo(() => {
     const next = [...manualAddresses];
@@ -87,7 +99,7 @@ export function MintPageClient() {
       return;
     }
     if (addresses.length === 0 || mintPaused) return;
-    void mint(addresses);
+    void mint(addresses, referralFromQuery);
   };
 
   const handleComplete = () => {
@@ -128,6 +140,12 @@ export function MintPageClient() {
             <p className="mt-1 text-sm text-muted-foreground">
               Mint unique on-chain urns to your wallet or gift them to others.
             </p>
+            {referralFromQuery ? (
+              <p className="mt-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                Referral link active — the referrer earns a share of this mint
+                when you complete checkout.
+              </p>
+            ) : null}
             <p className="mt-2 text-sm tabular-nums text-muted-foreground">
               {cryptournsLoading ? (
                 <span className="inline-block h-4 w-28 animate-pulse rounded bg-muted" />

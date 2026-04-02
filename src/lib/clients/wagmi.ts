@@ -1,13 +1,15 @@
 import { getDefaultConfig } from "@rainbow-me/rainbowkit";
-import { sepolia } from "wagmi/chains";
+
+import { getCryptournsChainConfig } from "@/lib/chains/cryptournsChain";
+
+const { chain } = getCryptournsChainConfig();
 
 export const wagmiConfig = getDefaultConfig({
   appName: "Cryptourns",
   projectId: "YOUR_PROJECT_ID",
-  chains: [sepolia],
+  chains: [chain],
   /* transports: {
-    [mainnet.id]: http('https://eth-mainnet.g.alchemy.com/v2/...'),
-    [sepolia.id]: http('https://eth-sepolia.g.alchemy.com/v2/...'),
+    [chain.id]: http('https://eth-mainnet.g.alchemy.com/v2/...'),
   }, */
-  ssr: true, // If your dApp uses server side rendering (SSR)
+  ssr: true,
 });

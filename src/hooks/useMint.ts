@@ -10,6 +10,7 @@ import {
   useWriteContract,
 } from "wagmi";
 
+import { getCryptournsChainConfig } from "@/lib/chains/cryptournsChain";
 import { CRYPTOURNS_CONTRACT } from "@/lib/contract/cryptourns.contract";
 import { buildMintWriteParams } from "@/lib/contract/mintTx";
 import { getMintedTokenIdsFromReceipt } from "@/lib/contract/parseMintReceipt";
@@ -60,7 +61,7 @@ export function useMint() {
   }, [resetWrite]);
 
   const mint = useCallback(
-    async (receivers: Address[]) => {
+    async (receivers: Address[], referralAddress?: Address) => {
       if (!isConnected) return;
 
       setErrorMessage(null);
@@ -69,12 +70,17 @@ export function useMint() {
       resetWrite();
 
       try {
-        const params = buildMintWriteParams(receivers, mintPriceWei);
+        const params = buildMintWriteParams(
+          receivers,
+          mintPriceWei,
+          referralAddress,
+        );
         setStep("verify");
 
         if (chainId !== CRYPTOURNS_CONTRACT.chainId) {
           if (!switchChainAsync) {
-            throw new Error("Switch to Sepolia in your wallet to mint.");
+            const { name } = getCryptournsChainConfig();
+            throw new Error(`Switch to ${name} in your wallet to mint.`);
           }
           await switchChainAsync({ chainId: CRYPTOURNS_CONTRACT.chainId });
         }

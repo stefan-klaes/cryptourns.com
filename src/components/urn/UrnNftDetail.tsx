@@ -1,3 +1,5 @@
+import { UrnAddressTraitCard } from "@/components/urn/UrnAddressTraitCard";
+import { UrnOwnerField } from "@/components/urn/UrnOwnerField";
 import type { UrnAttribute, UrnMetadata } from "@/lib/urn/UrnMetadata";
 import Image from "next/image";
 import Link from "next/link";
@@ -20,9 +22,18 @@ function formatTraitDisplay(attr: UrnAttribute): { short: string; full: string }
 type UrnNftDetailProps = {
   urnId: number;
   metadata: UrnMetadata;
+  ownerAddress: string | null;
+  ownerEnsName: string | null;
+  ownerExplorerBaseUrl: string;
 };
 
-export function UrnNftDetail({ urnId, metadata }: UrnNftDetailProps) {
+export function UrnNftDetail({
+  urnId,
+  metadata,
+  ownerAddress,
+  ownerEnsName,
+  ownerExplorerBaseUrl,
+}: UrnNftDetailProps) {
   const { image, name, description, attributes } = metadata;
 
   return (
@@ -84,6 +95,13 @@ export function UrnNftDetail({ urnId, metadata }: UrnNftDetailProps) {
               <p className="font-mono text-xs text-muted-foreground tabular-nums">
                 Token #{urnId}
               </p>
+              {ownerAddress ? (
+                <UrnOwnerField
+                  ownerAddress={ownerAddress}
+                  ownerEnsName={ownerEnsName}
+                  ownerExplorerBaseUrl={ownerExplorerBaseUrl}
+                />
+              ) : null}
             </header>
 
             <section className="space-y-3">
@@ -95,6 +113,19 @@ export function UrnNftDetail({ urnId, metadata }: UrnNftDetailProps) {
                   const { short, full } = formatTraitDisplay(attr);
                   const isCrackedYes =
                     attr.trait_type === "Cracked" && attr.value === "Yes";
+
+                  if (attr.trait_type === "Urn address") {
+                    return (
+                      <li key={attr.trait_type}>
+                        <UrnAddressTraitCard
+                          label={attr.trait_type}
+                          displayShort={short}
+                          fullAddress={attr.value}
+                        />
+                      </li>
+                    );
+                  }
+
                   return (
                     <li key={attr.trait_type}>
                       <div

@@ -1,4 +1,5 @@
 import { AssetType } from "@/generated/prisma";
+import { isCryptournsMainnet } from "@/lib/chains/cryptournsChain";
 import { ZERO_ADDRESS } from "@/lib/constants/zeroAddress";
 import { CRYPTOURNS_CONTRACT } from "@/lib/contract/cryptourns.contract";
 import type { Asset } from "./Asset";
@@ -57,7 +58,7 @@ export class AlchemyProvider {
       throw new Error("Missing ALCHEMY_API_KEY");
     }
     this.apiKey = key;
-    this.host = process.env.isMainnet
+    this.host = isCryptournsMainnet()
       ? "eth-mainnet.g.alchemy.com"
       : "eth-sepolia.g.alchemy.com";
   }
