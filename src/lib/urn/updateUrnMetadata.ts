@@ -1,9 +1,14 @@
+import { AssetTransferDirection } from "@/generated/prisma";
 import { db } from "@/lib/clients/db";
 import type { Asset } from "@/lib/clients/indexer/Asset";
-import { getCryptournMintDetails } from "@/lib/clients/indexer/services/getCryptournMintDetails.service";
-import { getNfts } from "@/lib/clients/indexer/services/getNfts.service";
-import { getTokenboundAccount } from "@/lib/clients/indexer/services/getTokenboundAccount.service";
-import { isUrnCracked } from "@/lib/clients/indexer/services/isUrnCracked.service";
+import { getCryptournMintDetails } from "@/lib/clients/indexer/services/getCryptournMintDetails";
+import { getNfts } from "@/lib/clients/indexer/services/getNfts";
+import { getTokenboundAccount } from "@/lib/clients/indexer/services/getTokenboundAccount";
+import {
+  loadNewUrnAssetTransfersForPersist,
+  persistUrnAssetTransferRows,
+} from "@/lib/urn/ingestUrnAssetTransfersFromAlchemy";
+import { getAddress, type Address } from "viem";
 
 /**
  * Ensures a {@link Urn} row exists for the on-chain token id, fetches NFTs held by its TBA
@@ -34,22 +39,46 @@ export async function updateUrnMetadata(urnId: number): Promise<void> {
     rows.push({ urnId: urnId, ...asset });
   }
 
+  let transferSync: Awaited<
+    ReturnType<typeof loadNewUrnAssetTransfersForPersist>
+  > | null = null;
+  try {
+    transferSync = await loadNewUrnAssetTransfersForPersist(
+      urnId,
+      getAddress(urn.tba as Address),
+      urn.assetTransfersSyncedThroughBlock,
+    );
+  } catch (err) {
+    console.error(`[urn] asset transfer sync failed for #${urnId}:`, err);
+  }
+
   await db.$transaction(async (tx) => {
     await tx.asset.deleteMany({ where: { urnId: urnId } });
     if (rows.length > 0) {
       await tx.asset.createMany({ data: rows });
     }
+    if (transferSync) {
+      await persistUrnAssetTransferRows(
+        tx,
+        transferSync.rows,
+        transferSync.nextWatermark,
+        urnId,
+      );
+    }
   });
 
   if (urn.cracked) return;
 
-  const cracked = await isUrnCracked(urnId);
+  const hasOutbound = await db.urnAssetTransfer.findFirst({
+    where: { urnId, direction: AssetTransferDirection.OUT },
+    select: { id: true },
+  });
 
-  if (!cracked) return;
+  if (!hasOutbound) return;
 
   await db.urn.update({
     where: { id: urnId },
-    data: { cracked },
+    data: { cracked: true },
   });
 }
 

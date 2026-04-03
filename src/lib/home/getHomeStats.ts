@@ -1,6 +1,6 @@
 import { AssetType } from "@/generated/prisma";
 import { db } from "@/lib/clients/db";
-import { AlchemyProvider } from "@/lib/clients/indexer/AlchemyProvider";
+import { getCryptournsSupply } from "@/lib/clients/indexer/services/getCryptournsSupply";
 
 export type HomeStatsSnapshot = {
   /** On-chain total supply; `null` when the indexer call fails. */
@@ -15,8 +15,7 @@ export type HomeStatsSnapshot = {
 
 export async function getHomeStats(): Promise<HomeStatsSnapshot> {
   const [supplyResult, coinAgg, nftAgg, lightedCandles] = await Promise.all([
-    new AlchemyProvider()
-      .getCryptournsSupply()
+    getCryptournsSupply()
       .then((n) => ({ ok: true as const, n }))
       .catch(() => ({ ok: false as const })),
     db.asset.aggregate({

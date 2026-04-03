@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coerceAlchemyBlockTimestampToDate } from "./AlchemyProvider";
+import { coerceAlchemyBlockTimestampToDate } from "./alchemy/parseAlchemyNft";
 
 describe("coerceAlchemyBlockTimestampToDate", () => {
   it("returns null for zero, negative, and empty", () => {

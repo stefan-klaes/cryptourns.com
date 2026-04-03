@@ -1,8 +1,9 @@
 import { VaultCollectionDetail } from "@/components/collections/VaultCollectionDetail";
 import {
   getVaultCollectionAssetTypes,
+  getVaultCollectionErc721Tokens,
+  getVaultCollectionFungibleUrns,
   getVaultCollectionMeta,
-  getVaultCollectionNftTransfers,
   getVaultCollectionStats,
 } from "@/lib/collections/getVaultCollectionDetail";
 import { getCryptournsChainConfig } from "@/lib/chains/cryptournsChain";
@@ -23,10 +24,11 @@ export default async function VaultCollectionPage({ params }: PageProps) {
     notFound();
   }
 
-  const [stats, transfers, meta, types, { explorerBaseUrl }] =
+  const [stats, erc721Tokens, fungibleUrns, meta, types, { explorerBaseUrl }] =
     await Promise.all([
       getVaultCollectionStats(contractAddress),
-      getVaultCollectionNftTransfers(contractAddress),
+      getVaultCollectionErc721Tokens(contractAddress),
+      getVaultCollectionFungibleUrns(contractAddress),
       getVaultCollectionMeta(contractAddress),
       getVaultCollectionAssetTypes(contractAddress),
       Promise.resolve(getCryptournsChainConfig()),
@@ -60,7 +62,8 @@ export default async function VaultCollectionPage({ params }: PageProps) {
           contractAddress={contractAddress}
           meta={meta}
           types={types}
-          transfers={transfers}
+          erc721Tokens={erc721Tokens}
+          fungibleUrns={fungibleUrns}
           totalIndexedQuantity={stats.totalIndexedQuantity}
           inUrnsCount={stats.inUrnsCount}
           explorerBaseUrl={explorerBaseUrl}

@@ -1,4 +1,4 @@
-import type { AlchemyNftPortfolioRow } from "@/lib/clients/indexer/AlchemyProvider";
+import type { AlchemyNftPortfolioRow } from "@/lib/clients/indexer/alchemy/alchemyNftPortfolio";
 import type { NftPortfolioItemJson } from "@/lib/wallet/portfolioTypes";
 
 export function mapAlchemyNftPortfolioRow(

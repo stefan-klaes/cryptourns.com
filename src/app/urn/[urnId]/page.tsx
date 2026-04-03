@@ -1,6 +1,6 @@
 import { UrnNftDetail } from "@/components/urn/UrnNftDetail";
 import { getCryptournsChainConfig } from "@/lib/chains/cryptournsChain";
-import { ViemProvider } from "@/lib/clients/indexer/ViemProvider";
+import { getCryptournOwner } from "@/lib/clients/indexer/services/getCryptournOwner";
 import { getEnsPrimaryName } from "@/lib/ens/getEnsPrimaryName";
 import { getUrnIndexedAssets } from "@/lib/urn/getUrnIndexedAssets";
 import { getUrnMetadata } from "@/lib/urn/getUrnMetadata";
@@ -36,8 +36,7 @@ export default async function UrnPage({ params }: PageProps) {
   let ownerAddress: Address | null = null;
   let ownerEnsName: string | null = null;
   try {
-    const viem = new ViemProvider();
-    ownerAddress = await viem.getOwnerOf(urnId);
+    ownerAddress = await getCryptournOwner(urnId);
     ownerEnsName = await getEnsPrimaryName(ownerAddress);
   } catch {
     // RPC or contract read failure — omit owner row

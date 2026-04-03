@@ -9,10 +9,7 @@ import {
   mintFeedItem,
 } from "./feedCopy";
 import { formatFeedTimestamp } from "./formatFeedTimestamp";
-import {
-  resolveAssetFeedImageUrl,
-  tryCreateAlchemyProvider,
-} from "./resolveAssetFeedImageUrl";
+import { resolveAssetFeedImageUrl } from "./resolveAssetFeedImageUrl";
 
 const FEED_TAKE_MINTS = 40;
 const FEED_TAKE_CANDLES = 40;
@@ -74,10 +71,9 @@ export async function getCryptournFeed() {
       formatFeedTimestamp(row.createdAt.toISOString()),
     ),
   );
-  const alchemy = tryCreateAlchemyProvider();
   const assetItems = await Promise.all(
     orderedAssets.map(async (row) => {
-      const assetImageUrl = await resolveAssetFeedImageUrl(row, alchemy);
+      const assetImageUrl = await resolveAssetFeedImageUrl(row);
       return assetFeedItem(
         row,
         explorerBaseUrl,

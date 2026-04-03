@@ -1,7 +1,7 @@
 import { RefreshUrnMetadataButton } from "@/components/admin/RefreshUrnMetadataButton";
 import { SyncMissingUrnsButton } from "@/components/admin/SyncMissingUrnsButton";
 import { db } from "@/lib/clients/db";
-import { AlchemyProvider } from "@/lib/clients/indexer/AlchemyProvider";
+import { getCryptournsSupply } from "@/lib/clients/indexer/services/getCryptournsSupply";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +17,7 @@ export default async function AdminUrnsPage() {
   let totalSupply: number | null = null;
   let supplyError: string | null = null;
   try {
-    totalSupply = await new AlchemyProvider().getCryptournsSupply();
+    totalSupply = await getCryptournsSupply();
   } catch (err) {
     supplyError =
       err instanceof Error ? err.message : "Failed to read on-chain supply";

@@ -1,5 +1,5 @@
 import { db } from "@/lib/clients/db";
-import { AlchemyProvider } from "@/lib/clients/indexer/AlchemyProvider";
+import { getCryptournsSupply } from "@/lib/clients/indexer/services/getCryptournsSupply";
 import { updateUrnMetadata } from "@/lib/urn/updateUrnMetadata";
 import { NextResponse } from "next/server";
 
@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 export async function POST() {
   let totalSupply: number;
   try {
-    totalSupply = await new AlchemyProvider().getCryptournsSupply();
+    totalSupply = await getCryptournsSupply();
   } catch (err) {
     return NextResponse.json(
       {

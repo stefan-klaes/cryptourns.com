@@ -1,4 +1,4 @@
-import { getCryptournMintDetails } from "@/lib/clients/indexer/services/getCryptournMintDetails.service";
+import { getCryptournMintDetails } from "@/lib/clients/indexer/services/getCryptournMintDetails";
 import { validateUrnIdParam } from "@/lib/validation/route-params";
 import { NextResponse } from "next/server";
 

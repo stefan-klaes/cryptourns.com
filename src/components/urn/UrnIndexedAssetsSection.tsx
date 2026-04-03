@@ -4,6 +4,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatSentToUrnRelative } from "@/lib/time/formatSentToUrn";
 import type { UrnIndexedAssetRow } from "@/lib/urn/getUrnIndexedAssets";
 import Image from "next/image";
+import type { Route } from "next";
+import Link from "next/link";
 import { getAddress, isAddress } from "viem";
 
 function shortHex(value: string): string {
@@ -62,12 +64,20 @@ export function UrnIndexedAssetsSection({
       className="mt-12 rounded-2xl border border-border bg-card/80 p-5 shadow-sm ring-1 ring-black/5 backdrop-blur-sm dark:ring-white/10 sm:p-6"
       aria-labelledby="indexed-vault-assets-heading"
     >
-      <h2
-        id="indexed-vault-assets-heading"
-        className="text-base font-semibold tracking-tight text-foreground sm:text-lg"
-      >
-        {holdingsTitle}
-      </h2>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-baseline sm:justify-between">
+        <h2
+          id="indexed-vault-assets-heading"
+          className="text-base font-semibold tracking-tight text-foreground sm:text-lg"
+        >
+          {holdingsTitle}
+        </h2>
+        <Link
+          href={`/urn/${urnId}/transfers` as Route}
+          className="shrink-0 text-sm font-medium text-primary underline-offset-4 hover:underline"
+        >
+          Transfer history
+        </Link>
+      </div>
 
       <Tabs
         defaultValue={defaultTab}

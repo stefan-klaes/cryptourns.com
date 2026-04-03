@@ -13,6 +13,11 @@ enum AssetType {
   ERC20
 }
 
+enum AssetTransferDirection {
+  IN
+  OUT
+}
+
 model Candle {
   urnId     Int
   address   String
@@ -51,9 +56,52 @@ model Urn {
   mintTx    String
   mintedAt  DateTime
   mintedBy  String
+  /// Highest chain block fully ingested for `UrnAssetTransfer` sync (incremental `fromBlock` cursor).
+  assetTransfersSyncedThroughBlock Int @default(0)
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
 
-  candles Candle[]
-  assets  Asset[]
+  candles           Candle[]
+  assets            Asset[]
+  assetTransfers    UrnAssetTransfer[]
+}
+
+model UrnAssetTransfer {
+  id Int @id @default(autoincrement())
+
+  urnId Int
+  urn   Urn @relation(fields: [urnId], references: [id], onDelete: Cascade)
+
+  direction  AssetTransferDirection
+  assetType  AssetType
+
+  blockNumber Int
+  occurredAt  DateTime?
+
+  txHash   String
+  logIndex Int
+
+  fromAddress String
+  toAddress   String
+
+  contractAddress String
+  tokenId         String
+
+  quantityRaw     String
+  quantityDisplay String?
+
+  assetSymbol String?
+  decimals    Int?
+
+  name           String?
+  imageUrl       String?
+  collectionName String?
+
+  alchemyUniqueId String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([urnId, txHash, logIndex, contractAddress, tokenId, direction])
+  @@index([urnId, occurredAt(sort: Desc)])
+  @@index([urnId, blockNumber])
 }

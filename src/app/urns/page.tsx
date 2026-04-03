@@ -1,4 +1,4 @@
-import { AlchemyProvider } from "@/lib/clients/indexer/AlchemyProvider";
+import { getCryptournsSupply } from "@/lib/clients/indexer/services/getCryptournsSupply";
 import {
   UrnsListPagination,
   UrnsListSortBar,
@@ -43,7 +43,7 @@ export default async function UrnsPage({ searchParams }: UrnsPageProps) {
   const [totalIndexed, vaultTotals, totalOnChain] = await Promise.all([
     countUrns(),
     getIndexedVaultTotals(),
-    new AlchemyProvider().getCryptournsSupply().catch(() => 0),
+    getCryptournsSupply().catch(() => 0),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(totalIndexed / limit));
