@@ -1,7 +1,7 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
-import { Box, CirclePlus, HandCoins, Layers, Newspaper } from "lucide-react";
+import { Box, CirclePlus, FileText, HandCoins, Layers, Newspaper } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { href: "/mint", label: "Mint", icon: CirclePlus },
   { href: "/earn", label: "Earn", icon: HandCoins },
   { href: "/feed", label: "Feed", icon: Newspaper },
+  { href: "/whitepaper" as Route, label: "Paper", icon: FileText },
 ] as const satisfies readonly {
   href: Route;
   label: string;
