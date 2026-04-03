@@ -9,20 +9,37 @@ import {
   mintFeedItem,
 } from "./feedCopy";
 import { formatFeedTimestamp } from "./formatFeedTimestamp";
+import {
+  feedItemAssetTransferKey,
+  getLatestInTransferByAssetKeys,
+} from "./getLatestInTransferByAssetKeys";
 import { resolveAssetFeedImageUrl } from "./resolveAssetFeedImageUrl";
 
-const FEED_TAKE_MINTS = 40;
-const FEED_TAKE_CANDLES = 40;
-const FEED_TAKE_ASSETS = 40;
-const FEED_MAX_ITEMS = 80;
+const FEED_TAKE_FULL = 40;
+const FEED_MAX_ITEMS_FULL = 80;
 
-export async function getCryptournFeed() {
+export type GetCryptournFeedOptions = {
+  /** Max items after merge (newest first). Capped at 80. Default 80. */
+  limit?: number;
+};
+
+function feedSourceTake(limit: number): number {
+  if (limit >= FEED_MAX_ITEMS_FULL) return FEED_TAKE_FULL;
+  return Math.min(FEED_TAKE_FULL, Math.max(15, Math.ceil(limit * 3)));
+}
+
+export async function getCryptournFeed(options?: GetCryptournFeedOptions) {
+  const maxItems = Math.min(
+    options?.limit ?? FEED_MAX_ITEMS_FULL,
+    FEED_MAX_ITEMS_FULL,
+  );
+  const take = feedSourceTake(maxItems);
   const { explorerBaseUrl } = getCryptournsChainConfig();
 
   const [mintRows, candleRows, assetIdRows] = await Promise.all([
     db.urn.findMany({
       orderBy: { mintedAt: "desc" },
-      take: FEED_TAKE_MINTS,
+      take,
       select: {
         id: true,
         mintedAt: true,
@@ -32,7 +49,7 @@ export async function getCryptournFeed() {
     }),
     db.candle.findMany({
       orderBy: { createdAt: "desc" },
-      take: FEED_TAKE_CANDLES,
+      take,
       include: {
         urn: { include: urnListInclude },
       },
@@ -40,7 +57,7 @@ export async function getCryptournFeed() {
     db.$queryRaw<{ id: number }[]>`
       SELECT id FROM "Asset"
       ORDER BY COALESCE("sentToUrn", "createdAt") DESC
-      LIMIT ${FEED_TAKE_ASSETS}
+      LIMIT ${take}
     `,
   ]);
 
@@ -56,6 +73,14 @@ export async function getCryptournFeed() {
   const orderedAssets = assetIds
     .map((id) => assetById.get(id))
     .filter((a): a is NonNullable<typeof a> => a != null);
+
+  const transferByKey = await getLatestInTransferByAssetKeys(
+    orderedAssets.map((a) => ({
+      urnId: a.urnId,
+      contractAddress: a.contractAddress,
+      tokenId: a.tokenId,
+    })),
+  );
 
   const mintItems = mintRows.map((row) =>
     mintFeedItem(
@@ -74,11 +99,18 @@ export async function getCryptournFeed() {
   const assetItems = await Promise.all(
     orderedAssets.map(async (row) => {
       const assetImageUrl = await resolveAssetFeedImageUrl(row);
+      const tkey = feedItemAssetTransferKey(
+        row.urnId,
+        row.contractAddress,
+        row.tokenId,
+      );
+      const latestIn = transferByKey.get(tkey) ?? null;
       return assetFeedItem(
         row,
         explorerBaseUrl,
         formatFeedTimestamp(assetOccurredAt(row).toISOString()),
         assetImageUrl,
+        latestIn,
       );
     }),
   );
@@ -88,5 +120,5 @@ export async function getCryptournFeed() {
       (a, b) =>
         Date.parse(b.occurredAtIso) - Date.parse(a.occurredAtIso),
     )
-    .slice(0, FEED_MAX_ITEMS);
+    .slice(0, maxItems);
 }

@@ -17,11 +17,13 @@ export default async function FeedPage() {
         <div className="absolute bottom-0 left-1/4 h-[280px] w-[50%] rounded-full bg-chart-2/10 blur-3xl" />
       </div>
 
-      <div className="mx-auto max-w-3xl">
-        <header className="mb-10">
-          <h1 className="text-3xl font-semibold tracking-tight">Feed</h1>
-          <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">
-            Recent mints, assets sent to urns, and candles — newest first.
+      <div className="mx-auto max-w-xl lg:max-w-2xl">
+        <header className="mb-6 sm:mb-8">
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+            Feed
+          </h1>
+          <p className="mt-1.5 max-w-lg text-sm leading-relaxed text-muted-foreground">
+            Mints, vault deposits, and candles from the cemetery—newest first.
           </p>
         </header>
 
@@ -31,13 +33,15 @@ export default async function FeedPage() {
             candle to see activity.
           </p>
         ) : (
-          <ul className="flex flex-col gap-4">
-            {items.map((item) => (
-              <li key={item.key}>
-                <FeedItem item={item} />
-              </li>
-            ))}
-          </ul>
+          <div className="overflow-hidden rounded-2xl border border-border/80 bg-card/40 shadow-sm ring-1 ring-black/[0.03] dark:bg-card/25 dark:ring-white/[0.06]">
+            <ul className="divide-y divide-border/60">
+              {items.map((item) => (
+                <li key={item.key} className="px-3 sm:px-5">
+                  <FeedItem item={item} />
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </div>
     </main>

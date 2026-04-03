@@ -1,26 +1,19 @@
 import { resolveEnsName } from "@/lib/ens/resolveEnsName";
 import { NextResponse } from "next/server";
 
-export const runtime = "nodejs";
+type Body = { name?: unknown };
 
 export async function POST(request: Request) {
-  let body: unknown;
+  let body: Body;
   try {
-    body = await request.json();
+    body = (await request.json()) as Body;
   } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const name =
-    typeof body === "object" &&
-    body !== null &&
-    "name" in body &&
-    typeof (body as { name: unknown }).name === "string"
-      ? (body as { name: string }).name
-      : "";
-
+  const raw = typeof body.name === "string" ? body.name : "";
   try {
-    const result = await resolveEnsName(name);
+    const result = await resolveEnsName(raw);
     if (!result.ok) {
       return NextResponse.json({ error: result.error }, { status: 400 });
     }
@@ -28,11 +21,8 @@ export async function POST(request: Request) {
       address: result.address,
       normalizedName: result.normalizedName,
     });
-  } catch (err) {
-    console.error("resolveEnsName failed:", err);
-    return NextResponse.json(
-      { error: "ENS lookup failed" },
-      { status: 500 },
-    );
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "ENS resolution failed";
+    return NextResponse.json({ error: msg }, { status: 503 });
   }
 }

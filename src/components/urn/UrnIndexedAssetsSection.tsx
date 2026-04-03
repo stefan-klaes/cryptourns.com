@@ -1,12 +1,18 @@
 "use client";
 
+import { ResponsiveSheet } from "@/components/ResponsiveSheet";
+import { WithdrawFromUrnPanel } from "@/components/urn/WithdrawFromUrnPanel";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatSentToUrnRelative } from "@/lib/time/formatSentToUrn";
 import type { UrnIndexedAssetRow } from "@/lib/urn/getUrnIndexedAssets";
+import { isVaultCryptournSelfAsset } from "@/lib/urn/isVaultCryptournSelfAsset";
 import Image from "next/image";
 import type { Route } from "next";
 import Link from "next/link";
-import { getAddress, isAddress } from "viem";
+import { useState } from "react";
+import { getAddress, isAddress, type Address } from "viem";
+import { useAccount } from "wagmi";
 
 function shortHex(value: string): string {
   if (!value.startsWith("0x") || value.length <= 14) return value;
@@ -37,11 +43,20 @@ function explorerHrefForAsset(
   return `${base}/token/${contract}?a=${encodeURIComponent(row.tokenId)}`;
 }
 
+export type UrnIndexedAssetsWithdrawConfig = {
+  tbaAddress: Address;
+  chainName: string;
+  cracked: boolean;
+  candleCount: number;
+  ownerAddress: string | null;
+};
+
 type UrnIndexedAssetsSectionProps = {
   urnId: number;
   explorerBaseUrl: string;
   coins: UrnIndexedAssetRow[];
   nfts: UrnIndexedAssetRow[];
+  withdraw?: UrnIndexedAssetsWithdrawConfig | null;
 };
 
 export function UrnIndexedAssetsSection({
@@ -49,7 +64,14 @@ export function UrnIndexedAssetsSection({
   explorerBaseUrl,
   coins,
   nfts,
+  withdraw,
 }: UrnIndexedAssetsSectionProps) {
+  const { address, isConnected } = useAccount();
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [withdrawTarget, setWithdrawTarget] = useState<UrnIndexedAssetRow | null>(
+    null,
+  );
+
   const defaultTab = nfts.length > 0 || coins.length === 0 ? "nfts" : "coins";
   const totalCount = nfts.length + coins.length;
   const holdingsTitle =
@@ -58,6 +80,22 @@ export function UrnIndexedAssetsSection({
       : totalCount === 1
         ? `Cryptourn #${urnId} owns 1 asset`
         : `Cryptourn #${urnId} owns ${totalCount.toLocaleString()} assets`;
+
+  const showWithdraw =
+    Boolean(withdraw) &&
+    Boolean(withdraw!.ownerAddress && address) &&
+    withdraw!.ownerAddress!.toLowerCase() === address!.toLowerCase() &&
+    isConnected;
+
+  const openWithdraw = (row: UrnIndexedAssetRow) => {
+    setWithdrawTarget(row);
+    setSheetOpen(true);
+  };
+
+  const closeWithdrawSheet = () => {
+    setSheetOpen(false);
+    setWithdrawTarget(null);
+  };
 
   return (
     <section
@@ -110,77 +148,97 @@ export function UrnIndexedAssetsSection({
                   row.name?.trim() ||
                   `Token #${row.tokenId}`;
                 const sentMeta = formatSentToUrnRelative(row.sentToUrn);
+                const selfBlocked = isVaultCryptournSelfAsset(urnId, row);
                 return (
                   <li
                     key={`${row.contractAddress}-${row.tokenId}-${row.type}`}
-                    className="flex gap-3 px-4 py-3 sm:items-center sm:justify-between"
+                    className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
                   >
-                    <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-border bg-muted/40">
-                      {row.imageUrl ? (
-                        <Image
-                          src={row.imageUrl}
-                          alt={title}
-                          fill
-                          className="object-cover"
-                          sizes="56px"
-                          unoptimized
-                        />
-                      ) : (
-                        <span
-                          className="flex h-full w-full items-center justify-center text-[0.65rem] font-medium text-muted-foreground"
-                          aria-hidden
-                        >
-                          NFT
-                        </span>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-[0.65rem] font-medium tracking-wide text-muted-foreground uppercase">
-                          {row.type}
-                        </span>
-                        {row.quantity > 1 ? (
-                          <span className="text-xs tabular-nums text-muted-foreground">
-                            ×{row.quantity}
-                          </span>
-                        ) : null}
-                      </div>
-                      <p className="truncate text-sm font-medium text-foreground">
-                        {title}
-                      </p>
-                      {row.collectionName?.trim() ? (
-                        <p className="truncate text-xs text-muted-foreground">
-                          {row.collectionName.trim()}
-                        </p>
-                      ) : null}
-                      {sentMeta ? (
-                        <p className="text-xs text-muted-foreground">
-                          <span className="font-medium text-foreground/80">
-                            In urn since
-                          </span>{" "}
-                          <time
-                            dateTime={sentMeta.dateTime}
-                            title={sentMeta.absoluteTitle}
-                            className="text-muted-foreground"
+                    <div className="flex min-w-0 flex-1 gap-3">
+                      <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-border bg-muted/40">
+                        {row.imageUrl ? (
+                          <Image
+                            src={row.imageUrl}
+                            alt={title}
+                            fill
+                            className="object-cover"
+                            sizes="56px"
+                            unoptimized
+                          />
+                        ) : (
+                          <span
+                            className="flex h-full w-full items-center justify-center text-[0.65rem] font-medium text-muted-foreground"
+                            aria-hidden
                           >
-                            {sentMeta.relative}
-                          </time>
+                            NFT
+                          </span>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-[0.65rem] font-medium tracking-wide text-muted-foreground uppercase">
+                            {row.type}
+                          </span>
+                          {row.quantity > 1 ? (
+                            <span className="text-xs tabular-nums text-muted-foreground">
+                              ×{row.quantity}
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="truncate text-sm font-medium text-foreground">
+                          {title}
                         </p>
-                      ) : (
-                        <p className="text-xs text-muted-foreground/80 italic">
-                          In urn since unknown — refresh metadata to index.
-                        </p>
-                      )}
-                      <a
-                        href={href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-block max-w-full truncate font-mono text-xs text-primary underline-offset-2 hover:underline"
-                        title={contract}
-                      >
-                        {label}
-                      </a>
+                        {row.collectionName?.trim() ? (
+                          <p className="truncate text-xs text-muted-foreground">
+                            {row.collectionName.trim()}
+                          </p>
+                        ) : null}
+                        {sentMeta ? (
+                          <p className="text-xs text-muted-foreground">
+                            <span className="font-medium text-foreground/80">
+                              In urn since
+                            </span>{" "}
+                            <time
+                              dateTime={sentMeta.dateTime}
+                              title={sentMeta.absoluteTitle}
+                              className="text-muted-foreground"
+                            >
+                              {sentMeta.relative}
+                            </time>
+                          </p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground/80 italic">
+                            In urn since unknown — refresh metadata to index.
+                          </p>
+                        )}
+                        <a
+                          href={href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-block max-w-full truncate font-mono text-xs text-primary underline-offset-2 hover:underline"
+                          title={contract}
+                        >
+                          {label}
+                        </a>
+                      </div>
                     </div>
+                    {showWithdraw ? (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="shrink-0 self-start sm:self-center"
+                        disabled={selfBlocked}
+                        title={
+                          selfBlocked
+                            ? "This urn cannot be withdrawn from its own vault"
+                            : undefined
+                        }
+                        onClick={() => openWithdraw(row)}
+                      >
+                        Withdraw
+                      </Button>
+                    ) : null}
                   </li>
                 );
               })}
@@ -202,9 +260,9 @@ export function UrnIndexedAssetsSection({
                 return (
                   <li
                     key={`${row.contractAddress}-${row.tokenId}`}
-                    className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                    className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
                   >
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <a
                         href={href}
                         target="_blank"
@@ -219,10 +277,21 @@ export function UrnIndexedAssetsSection({
                           Ref #{row.tokenId}
                         </p>
                       ) : null}
+                      <p className="mt-1 font-mono text-sm tabular-nums text-foreground">
+                        {row.quantity.toLocaleString()} units
+                      </p>
                     </div>
-                    <p className="shrink-0 font-mono text-sm tabular-nums text-foreground">
-                      {row.quantity.toLocaleString()} units
-                    </p>
+                    {showWithdraw ? (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="shrink-0 self-start sm:self-center"
+                        onClick={() => openWithdraw(row)}
+                      >
+                        Withdraw
+                      </Button>
+                    ) : null}
                   </li>
                 );
               })}
@@ -230,6 +299,39 @@ export function UrnIndexedAssetsSection({
           )}
         </TabsContent>
       </Tabs>
+
+      {withdraw && showWithdraw ? (
+        <ResponsiveSheet
+          open={sheetOpen}
+          onOpenChange={(next) => {
+            if (!next) closeWithdrawSheet();
+            else setSheetOpen(true);
+          }}
+          title="Withdraw from vault"
+          description="Confirm recipient and amount, then sign with your wallet."
+          sheetSide="right"
+          sheetContentClassName="!w-[min(100vw-1.25rem,22rem)] sm:!w-[min(100vw-2rem,28rem)] sm:!max-w-[min(100vw-2rem,28rem)]"
+          drawerContentClassName="mx-auto w-[calc(100vw-1rem)] max-w-[28rem]"
+        >
+          {sheetOpen ? (
+            <WithdrawFromUrnPanel
+              embedded
+              open={sheetOpen}
+              urnId={urnId}
+              tbaAddress={withdraw.tbaAddress}
+              chainName={withdraw.chainName}
+              cracked={withdraw.cracked}
+              candleCount={withdraw.candleCount}
+              indexedCoins={coins}
+              indexedNfts={nfts}
+              isConnected={isConnected}
+              entryRow={withdrawTarget}
+              backClosesSheet
+              onRequestClose={closeWithdrawSheet}
+            />
+          ) : null}
+        </ResponsiveSheet>
+      ) : null}
     </section>
   );
 }

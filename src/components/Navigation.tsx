@@ -1,12 +1,22 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
-import { Box, CirclePlus, FileText, HandCoins, Layers, Newspaper } from "lucide-react";
+import {
+  Box,
+  CirclePlus,
+  FileText,
+  HandCoins,
+  Home,
+  Layers,
+  Newspaper,
+  UserCircle,
+} from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { CryptournLogo } from "@/components/CryptournLogo";
+import { MobileHeader } from "@/components/MobileHeader";
 import { MobileNavMenu } from "@/components/MobileNavMenu";
 import { WalletConnectButton } from "@/components/WalletConnectButton";
 import { cn } from "@/lib/utils";
@@ -23,6 +33,19 @@ const NAV_ITEMS = [
   label: string;
   icon: LucideIcon;
 }[];
+
+const MOBILE_PRIMARY_NAV = [
+  { href: "/urns" as const, label: "Urns", icon: Box },
+  { href: "/collections" as const, label: "Collections", icon: Layers },
+  { href: "/mint" as const, label: "Mint", icon: CirclePlus },
+  { href: "/earn" as const, label: "Earn", icon: HandCoins },
+] as const;
+
+const MOBILE_MENU_ITEMS = [
+  { href: "/" as const, label: "Home", icon: Home },
+  ...NAV_ITEMS.map(({ href, label, icon }) => ({ href, label, icon })),
+  { href: "/account" as const, label: "Account", icon: UserCircle },
+] as const;
 
 function NavLink({
   href,
@@ -67,7 +90,7 @@ function MobileTabLink({
       href={href}
       className={cn(
         "flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-1 py-2",
-        "transition-colors",
+        "touch-manipulation transition-colors",
         active ? "text-foreground" : "text-muted-foreground",
       )}
     >
@@ -81,39 +104,38 @@ function MobileTabLink({
 
 export function Navigation() {
   return (
-    <nav
-      aria-label="Main"
-      className={cn(
-        "fixed inset-x-0 z-50 backdrop-blur-md",
-        "bottom-0 border-t border-border bg-background/95",
-        "md:top-0 md:bottom-auto md:border-t-0 md:border-b md:bg-background/80",
-      )}
-    >
-      <div className="mx-auto hidden h-14 max-w-6xl items-center justify-between gap-6 px-4 md:flex">
-        <Link
-          href="/"
-          className="flex shrink-0 items-center gap-2 text-foreground transition-opacity hover:opacity-90"
-        >
-          <CryptournLogo className="size-6" />
-          <span className="text-sm font-semibold tracking-tight">Cryptourns</span>
-        </Link>
-        <div className="flex flex-1 items-center justify-center gap-8">
-          {NAV_ITEMS.map(({ href, label }) => (
-            <NavLink key={href} href={href} label={label} />
-          ))}
+    <>
+      <MobileHeader />
+      <nav
+        aria-label="Main"
+        className={cn(
+          "fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 backdrop-blur-md",
+          "md:top-0 md:bottom-auto md:border-b md:border-t-0 md:bg-background/80",
+        )}
+      >
+        <div className="mx-auto hidden h-14 max-w-6xl items-center justify-between gap-6 px-4 md:flex">
+          <Link
+            href="/"
+            className="flex shrink-0 items-center gap-2 text-foreground transition-opacity hover:opacity-90"
+          >
+            <CryptournLogo className="size-6" />
+            <span className="text-sm font-semibold tracking-tight">Cryptourns</span>
+          </Link>
+          <div className="flex flex-1 items-center justify-center gap-8">
+            {NAV_ITEMS.map(({ href, label }) => (
+              <NavLink key={href} href={href} label={label} />
+            ))}
+          </div>
+          <WalletConnectButton variant="desktop" />
         </div>
-        <WalletConnectButton variant="desktop" />
-      </div>
 
-      <div className="flex w-full items-stretch px-1 pt-0.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] md:hidden">
-        <MobileNavMenu
-          links={NAV_ITEMS.map(({ href, label }) => ({ href, label }))}
-        />
-        {NAV_ITEMS.map(({ href, label, icon }) => (
-          <MobileTabLink key={href} href={href} label={label} icon={icon} />
-        ))}
-        <WalletConnectButton />
-      </div>
-    </nav>
+        <div className="flex w-full items-stretch px-1 pt-0.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] md:hidden">
+          {MOBILE_PRIMARY_NAV.map(({ href, label, icon }) => (
+            <MobileTabLink key={href} href={href} label={label} icon={icon} />
+          ))}
+          <MobileNavMenu items={MOBILE_MENU_ITEMS} />
+        </div>
+      </nav>
+    </>
   );
 }

@@ -50,7 +50,7 @@ export default function RootLayout({
               <ReferralRefCapture />
             </Suspense>
             <Navigation />
-            <div className="flex min-h-0 flex-1 flex-col pt-14 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
+            <div className="flex min-h-0 flex-1 flex-col pb-[calc(4.25rem+env(safe-area-inset-bottom))] pt-[calc(2.5rem+env(safe-area-inset-top))] md:pb-0 md:pt-14">
               {children}
             </div>
             <Toaster />

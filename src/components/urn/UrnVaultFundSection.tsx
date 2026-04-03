@@ -104,6 +104,7 @@ export function UrnVaultFundSection({
             chainName={chainName}
             explorerBaseUrl={explorerBaseUrl}
             excludeSendSelfNft={excludeSendSelfNft}
+            onSuccessfulTransferDismiss={() => setSheetOpen(false)}
           />
         ) : null}
       </ResponsiveSheet>

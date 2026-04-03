@@ -15,23 +15,6 @@ function safeChecksummed(addr: string): string {
   }
 }
 
-function explorerHrefForFeedAsset(
-  explorerBaseUrl: string,
-  contractAddress: string,
-  tokenId: string,
-  type: AssetType,
-): string {
-  const base = explorerBaseUrl.replace(/\/$/, "");
-  const contract = safeChecksummed(contractAddress);
-  if (type === AssetType.ERC20) {
-    return `${base}/token/${contract}`;
-  }
-  if (type === AssetType.ERC721) {
-    return `${base}/nft/${contract}/${tokenId}`;
-  }
-  return `${base}/token/${contract}?a=${encodeURIComponent(tokenId)}`;
-}
-
 function shortContract(addr: string): string {
   if (!addr.startsWith("0x") || addr.length <= 14) return addr;
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
@@ -49,17 +32,27 @@ export type FeedExplorerLink = {
   label: string;
 };
 
+/** Wallet that performed the action (minter, candle lighter, depositor). */
+export type FeedCreator = {
+  display: string;
+  /** Etherscan (or chain explorer) address page; null if unknown. */
+  addressExplorerHref: string | null;
+};
+
 export type FeedItemPayload = {
   key: string;
   /** ISO 8601, used for sorting and `datetime` on `<time>` */
   occurredAtIso: string;
   timeLabel: string;
-  title: string;
+  headline: string;
   text: string;
   imageSrc: string;
   imageAlt: string;
   urnHref: string;
-  explorer?: FeedExplorerLink;
+  urnId: number;
+  creator: FeedCreator;
+  /** Link to /tx/… when a tx hash is known (mint, indexed vault deposit). */
+  transactionExplorer?: FeedExplorerLink;
 };
 
 type MintRow = {
@@ -95,30 +88,47 @@ function explorerBase(explorerBaseUrl: string) {
   return explorerBaseUrl.replace(/\/$/, "");
 }
 
+function addressExplorerHref(
+  explorerBaseUrl: string,
+  address: string,
+): string | null {
+  const trimmed = address?.trim();
+  if (!trimmed || !isAddress(trimmed)) return null;
+  const base = explorerBase(explorerBaseUrl);
+  return `${base}/address/${safeChecksummed(trimmed)}`;
+}
+
 export function mintFeedItem(
   row: MintRow,
   explorerBaseUrl: string,
   timeLabel: string,
 ): FeedItemPayload {
   const base = explorerBase(explorerBaseUrl);
-  const minter = shortenAddress(row.mintedBy);
+  const creatorHref = addressExplorerHref(explorerBaseUrl, row.mintedBy);
+  const creatorDisplay =
+    creatorHref != null ? shortenAddress(row.mintedBy) : "Unknown wallet";
 
   return {
     key: `mint-${row.id}`,
     occurredAtIso: row.mintedAt.toISOString(),
     timeLabel,
-    title: `Minted Cryptourn #${row.id}`,
-    text:
-      minter.length > 0
-        ? `A fresh empty urn joined the collection — minter ${minter}.`
-        : "A fresh empty urn joined the collection.",
+    headline: `Minted Cryptourn #${row.id}`,
+    text: "A fresh empty urn joined the collection.",
     imageSrc: `/api/urn/${row.id}/image?variant=empty`,
     imageAlt: `Cryptourn #${row.id} — empty urn`,
     urnHref: `/urn/${row.id}`,
-    explorer: {
-      href: `${base}/tx/${row.mintTx}`,
-      label: "Mint transaction",
+    urnId: row.id,
+    creator: {
+      display: creatorDisplay,
+      addressExplorerHref: creatorHref,
     },
+    transactionExplorer:
+      row.mintTx?.trim().length > 0
+        ? {
+            href: `${base}/tx/${row.mintTx}`,
+            label: "Mint transaction",
+          }
+        : undefined,
   };
 }
 
@@ -127,8 +137,9 @@ export function candleFeedItem(
   explorerBaseUrl: string,
   timeLabel: string,
 ): FeedItemPayload {
-  const base = explorerBase(explorerBaseUrl);
-  const who = shortenAddress(row.address);
+  const creatorHref = addressExplorerHref(explorerBaseUrl, row.address);
+  const creatorDisplay =
+    creatorHref != null ? shortenAddress(row.address) : "Unknown wallet";
   const counts = urnVaultCounts(row.urn);
   const h = buildUrnImageCacheHash({
     nftCount: counts.nftCount,
@@ -141,14 +152,15 @@ export function candleFeedItem(
     key: `candle-${row.urnId}-${row.address}-${row.createdAt.toISOString()}`,
     occurredAtIso: row.createdAt.toISOString(),
     timeLabel,
-    title: `${who} lit a candle`,
-    text: `For Cryptourn #${row.urnId}.`,
+    headline: "Lit a candle",
+    text: `On Cryptourn #${row.urnId}.`,
     imageSrc: `/api/urn/${row.urnId}/image?h=${h}`,
     imageAlt: `Cryptourn #${row.urnId}`,
     urnHref: `/urn/${row.urnId}`,
-    explorer: {
-      href: `${base}/address/${row.address}`,
-      label: "Wallet on explorer",
+    urnId: row.urnId,
+    creator: {
+      display: creatorDisplay,
+      addressExplorerHref: creatorHref,
     },
   };
 }
@@ -170,7 +182,10 @@ export function assetFeedItem(
   timeLabel: string,
   /** Resolved http(s) URL for the asset (DB + optional Alchemy); urn art if null. */
   assetImageUrl: string | null,
+  /** Latest indexed IN transfer for this vault line, if any. */
+  latestInTransfer: { txHash: string; fromAddress: string } | null,
 ): FeedItemPayload {
+  const base = explorerBase(explorerBaseUrl);
   const at = assetOccurredAt(row);
   const counts = urnVaultCounts(row.urn);
   const h = buildUrnImageCacheHash({
@@ -198,23 +213,31 @@ export function assetFeedItem(
     metaParts.push(collection);
   }
 
+  const fromAddr = latestInTransfer?.fromAddress ?? "";
+  const creatorHref = addressExplorerHref(explorerBaseUrl, fromAddr);
+  const creatorDisplay =
+    creatorHref != null ? shortenAddress(fromAddr) : "Unknown sender";
+
   return {
     key: `asset-${row.id}`,
     occurredAtIso: at.toISOString(),
     timeLabel,
-    title: `${displayName} sent to Cryptourn #${row.urnId}`,
-    text: metaParts.join(" · "),
+    headline: displayName,
+    text: `Sent to Cryptourn #${row.urnId} · ${metaParts.join(" · ")}`,
     imageSrc: assetImageUrl ?? urnImageSrc,
     imageAlt: displayName,
     urnHref: `/urn/${row.urnId}`,
-    explorer: {
-      href: explorerHrefForFeedAsset(
-        explorerBaseUrl,
-        row.contractAddress,
-        row.tokenId,
-        row.type,
-      ),
-      label: "Token on explorer",
+    urnId: row.urnId,
+    creator: {
+      display: creatorDisplay,
+      addressExplorerHref: creatorHref,
     },
+    transactionExplorer:
+      latestInTransfer?.txHash?.trim().length
+        ? {
+            href: `${base}/tx/${latestInTransfer.txHash}`,
+            label: "Deposit transaction",
+          }
+        : undefined,
   };
 }

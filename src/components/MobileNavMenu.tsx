@@ -1,11 +1,13 @@
 "use client";
 
+import type { LucideIcon } from "lucide-react";
 import { Menu } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import * as React from "react";
 
 import { CryptournLogo } from "@/components/CryptournLogo";
+import { Button } from "@/components/ui/button";
 import {
   Drawer,
   DrawerClose,
@@ -16,22 +18,20 @@ import {
 } from "@/components/ui/drawer";
 import { cn } from "@/lib/utils";
 
-export type MobileNavMenuLink = {
-  href: Route;
+export type MobileNavMenuItem = {
+  href: Route | "/";
   label: string;
+  icon: LucideIcon;
 };
 
 type MobileNavMenuProps = {
-  links: readonly MobileNavMenuLink[];
+  items: readonly MobileNavMenuItem[];
 };
 
 const tabTriggerClass =
   "flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-1 py-2 text-muted-foreground transition-colors";
 
-const drawerLinkClass =
-  "rounded-lg px-3 py-3 text-left text-base font-medium text-foreground hover:bg-muted";
-
-export function MobileNavMenu({ links }: MobileNavMenuProps) {
+export function MobileNavMenu({ items }: MobileNavMenuProps) {
   const [open, setOpen] = React.useState(false);
 
   return (
@@ -43,51 +43,57 @@ export function MobileNavMenu({ links }: MobileNavMenuProps) {
             tabTriggerClass,
             open && "text-foreground",
           )}
-          aria-label="Menü"
+          aria-label="Open menu"
         >
           <Menu className="size-6 shrink-0 stroke-[1.75]" aria-hidden />
           <span className="max-w-full truncate text-center text-[0.65rem] font-semibold leading-none tracking-tight">
-            Menü
+            Menu
           </span>
         </button>
       </DrawerTrigger>
       <DrawerContent>
-        <DrawerHeader className="text-left">
-          <div className="flex flex-col gap-2">
+        <DrawerHeader className="gap-1.5 p-3 text-left">
+          <div className="flex flex-col gap-1">
             <DrawerClose asChild>
-              <Link
-                href="/"
-                className="flex items-center gap-3 rounded-md outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              <Button
+                variant="ghost"
+                size="sm"
+                nativeButton={false}
+                render={<Link href="/" />}
+                className="h-auto justify-start gap-2 px-2 py-1.5 font-semibold"
               >
-                <CryptournLogo className="size-7 shrink-0" />
-                <span className="text-base font-semibold tracking-tight text-foreground">
-                  Cryptourns
-                </span>
-              </Link>
+                <CryptournLogo className="size-6 shrink-0" />
+                Cryptourns
+              </Button>
             </DrawerClose>
-            <DrawerTitle className="text-sm font-medium text-muted-foreground">
-              Menü
+            <DrawerTitle className="px-2 text-xs font-medium text-muted-foreground">
+              Menu
             </DrawerTitle>
           </div>
         </DrawerHeader>
-        <nav className="flex flex-col gap-1 px-4 pb-8" aria-label="Menü">
-          <DrawerClose asChild>
-            <Link href="/" className={drawerLinkClass}>
-              Home
-            </Link>
-          </DrawerClose>
-          {links.map(({ href, label }) => (
-            <DrawerClose key={href} asChild>
-              <Link href={href} className={drawerLinkClass}>
-                {label}
-              </Link>
+        <nav
+          className="grid grid-cols-2 gap-1.5 px-3 pb-4"
+          aria-label="Site menu"
+        >
+          {items.map(({ href, label, icon: Icon }) => (
+            <DrawerClose key={`${href}-${label}`} asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                nativeButton={false}
+                render={<Link href={href as Route} />}
+                className="h-auto min-h-0 w-full justify-start gap-2 whitespace-normal py-2 font-normal"
+              >
+                <Icon
+                  className="size-3.5 shrink-0 stroke-[1.75] opacity-80"
+                  aria-hidden
+                />
+                <span className="line-clamp-2 text-left leading-snug">
+                  {label}
+                </span>
+              </Button>
             </DrawerClose>
           ))}
-          <DrawerClose asChild>
-            <Link href={"/account" as Route} className={drawerLinkClass}>
-              Account
-            </Link>
-          </DrawerClose>
         </nav>
       </DrawerContent>
     </Drawer>

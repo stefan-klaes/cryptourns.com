@@ -14,6 +14,7 @@ type UrnNftDetailProps = {
   metadata: UrnMetadata;
   /** DB candle row count (same value as Candles trait). */
   candleCount: number;
+  cracked: boolean;
   tbaAddress: Address;
   chainName: string;
   ownerAddress: string | null;
@@ -27,6 +28,7 @@ export function UrnNftDetail({
   urnId,
   metadata,
   candleCount,
+  cracked,
   tbaAddress,
   chainName,
   ownerAddress,
@@ -111,6 +113,7 @@ export function UrnNftDetail({
                 tokenId: String(urnId),
               }}
             />
+
           </div>
         </div>
 
@@ -119,6 +122,13 @@ export function UrnNftDetail({
           explorerBaseUrl={ownerExplorerBaseUrl}
           coins={indexedCoins}
           nfts={indexedNfts}
+          withdraw={{
+            tbaAddress,
+            chainName,
+            cracked,
+            candleCount,
+            ownerAddress,
+          }}
         />
       </div>
     </main>

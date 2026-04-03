@@ -9,11 +9,11 @@ import { cn } from "@/lib/utils";
 import { shortenAddress } from "@/lib/utils/shortenAddress";
 
 type WalletConnectButtonProps = {
-  variant?: "mobile" | "desktop";
+  variant?: "desktop" | "mobileHeader";
 };
 
 export function WalletConnectButton({
-  variant = "mobile",
+  variant = "desktop",
 }: WalletConnectButtonProps) {
   const [accountOpen, setAccountOpen] = useState(false);
 
@@ -33,25 +33,25 @@ export function WalletConnectButton({
               }
               className={cn(
                 "cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-40",
-                variant === "mobile" &&
-                  "flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-1 py-2",
+                variant === "mobileHeader" &&
+                  "inline-flex size-8 shrink-0 items-center justify-center rounded-md text-foreground hover:bg-muted/80 active:bg-muted",
                 variant === "desktop" &&
                   "inline-flex h-9 max-w-[11rem] shrink-0 items-center gap-2 rounded-md border border-border bg-background px-3 text-sm font-medium",
-                connected ? "text-foreground" : "text-muted-foreground",
+                variant === "desktop" &&
+                  (connected ? "text-foreground" : "text-muted-foreground"),
               )}
               aria-label={connected ? "Account" : "Connect wallet"}
             >
-              <WalletStatusIcon size={variant === "desktop" ? "sm" : "md"} />
-              <span
-                className={cn(
-                  "max-w-full truncate",
-                  variant === "mobile" &&
-                    "text-center text-[0.65rem] font-semibold leading-none tracking-tight",
-                  variant === "desktop" && "min-w-0 text-left",
-                )}
-              >
-                {connected ? shortenAddress(account.displayName) : "Wallet"}
-              </span>
+              <WalletStatusIcon
+                size={variant === "desktop" ? "sm" : "md"}
+                className={variant === "mobileHeader" ? "size-4" : undefined}
+                iconClassName={variant === "mobileHeader" ? "size-4" : undefined}
+              />
+              {variant === "desktop" && (
+                <span className="min-w-0 max-w-full truncate text-left">
+                  {connected ? shortenAddress(account.displayName) : "Wallet"}
+                </span>
+              )}
             </button>
             <WalletDetailSheet
               open={accountOpen}

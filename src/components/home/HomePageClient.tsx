@@ -4,19 +4,37 @@ import { useMemo, useState } from "react";
 import { Dices, Sparkles } from "lucide-react";
 import Link from "next/link";
 
+import { HomeClosingBand } from "@/components/home/HomeClosingBand";
+import { HomeCollectionsTeaser } from "@/components/home/HomeCollectionsTeaser";
 import { HomeCryptournsExplainer } from "@/components/home/HomeCryptournsExplainer";
+import { HomeFeedTeaser } from "@/components/home/HomeFeedTeaser";
+import { HomeMintNudge } from "@/components/home/HomeMintNudge";
 import { HomeStats } from "@/components/home/HomeStats";
 import { UrnRenderer } from "@/components/mint/UrnRenderer";
 import { Button, buttonVariants } from "@/components/ui/button";
+import type {
+  HomeCollectionTeaserRow,
+  HomeCollectionsAggregates,
+} from "@/lib/collections/homeCollectionsTeaserTypes";
+import type { FeedItemPayload } from "@/lib/feed/feedCopy";
 import type { HomeStatsSnapshot } from "@/lib/home/getHomeStats";
 import { cn } from "@/lib/utils";
 import { previewFromTick } from "@/lib/urn/previewFromTick";
 
 export type HomePageClientProps = {
   homeStats: HomeStatsSnapshot;
+  feedPreview: FeedItemPayload[];
+  collectionsTeaser: {
+    rows: HomeCollectionTeaserRow[];
+    aggregates: HomeCollectionsAggregates;
+  };
 };
 
-export function HomePageClient({ homeStats }: HomePageClientProps) {
+export function HomePageClient({
+  homeStats,
+  feedPreview,
+  collectionsTeaser,
+}: HomePageClientProps) {
   const [previewSeed, setPreviewSeed] = useState(0);
   const preview = useMemo(
     () => previewFromTick(previewSeed, "home"),
@@ -98,7 +116,7 @@ export function HomePageClient({ homeStats }: HomePageClientProps) {
                   "w-full sm:w-auto",
                 )}
               >
-                Browse collection
+                Browse urns
               </Link>
               <Button
                 type="button"
@@ -153,18 +171,29 @@ export function HomePageClient({ homeStats }: HomePageClientProps) {
               id="home-stats-heading"
               className="text-xs font-medium tracking-[0.22em] text-muted-foreground uppercase"
             >
-              Index snapshot
+              Proof on-chain
             </h2>
             <p className="text-sm leading-relaxed text-muted-foreground sm:text-base">
-              How much has been minted—and how much junk and fire has already
-              been parked inside urns on-chain.
+              Minted urns, assets in vaults, and candles—indexed from the same
+              activity you&apos;ll see in the feed and collections.
             </p>
           </div>
           <HomeStats stats={homeStats} />
         </section>
+
+        <HomeCollectionsTeaser
+          rows={collectionsTeaser.rows}
+          aggregates={collectionsTeaser.aggregates}
+        />
+
+        <HomeFeedTeaser items={feedPreview} />
+
+        <HomeMintNudge />
       </div>
 
       <HomeCryptournsExplainer />
+
+      <HomeClosingBand />
     </main>
   );
 }

@@ -9,6 +9,8 @@ export type UrnMetadataWithTba = {
   tba: Address;
   /** Same as Candles trait; explicit for client props without parsing attributes. */
   candleCount: number;
+  /** Set when any outbound vault transfer has been indexed. */
+  cracked: boolean;
 };
 
 /**
@@ -33,5 +35,6 @@ export async function getUrnMetadata(
     metadata: toUrnMetadata(urn),
     tba: getAddress(urn.tba),
     candleCount: urn._count.candles,
+    cracked: urn.cracked,
   };
 }

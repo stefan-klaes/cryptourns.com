@@ -44,6 +44,12 @@ import {
 } from "@/lib/wallet/portfolioNftKey";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+
+import {
+  WithdrawProgressDialog,
+  type WithdrawProgressStep,
+} from "@/components/urn/WithdrawProgressDialog";
+import { isWalletUserRejection } from "@/lib/urn/walletUserRejection";
 import type {
   Erc20PortfolioItemJson,
   NftPortfolioItemJson,
@@ -57,6 +63,8 @@ type SendToUrnPanelProps = {
   excludeSendSelfNft?: { contractAddress: Address; tokenId: string };
   /** Omit outer card when used inside a sheet. */
   embedded?: boolean;
+  /** Called after the user dismisses the success dialog (e.g. close parent sheet). */
+  onSuccessfulTransferDismiss?: () => void;
 };
 
 type ConfirmState =
@@ -127,6 +135,7 @@ export function SendToUrnPanel({
   explorerBaseUrl,
   excludeSendSelfNft,
   embedded = false,
+  onSuccessfulTransferDismiss,
 }: SendToUrnPanelProps) {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
@@ -148,6 +157,10 @@ export function SendToUrnPanel({
     () => new Set(),
   );
   const [tbaLookupDone, setTbaLookupDone] = useState(false);
+  const [progressOpen, setProgressOpen] = useState(false);
+  const [progressStep, setProgressStep] =
+    useState<WithdrawProgressStep>("verify");
+  const [progressError, setProgressError] = useState<string | null>(null);
 
   const portfolioQuery = useQuery({
     queryKey: ["wallet-portfolio", address],
@@ -171,18 +184,29 @@ export function SendToUrnPanel({
     await switchChainAsync({ chainId: CRYPTOURNS_CONTRACT.chainId });
   }, [chainId, chainName, switchChainAsync]);
 
+  const resetProgress = useCallback(() => {
+    setProgressOpen(false);
+    setProgressStep("verify");
+    setProgressError(null);
+  }, []);
+
   const runTx = useCallback(
     async (fn: () => Promise<`0x${string}`>) => {
       setLastConfirmedTxHref(null);
+      setProgressError(null);
+      setProgressOpen(true);
+      setProgressStep("verify");
       setBusy(true);
       try {
         await ensureChain();
         const hash = await fn();
+        setProgressStep("waiting");
         await waitForTransactionReceipt(wagmiConfig, { hash });
         void queryClient.invalidateQueries({ queryKey: ["wallet-portfolio"] });
         void queryClient.invalidateQueries({ queryKey: ["owned-cryptourns"] });
         setLastConfirmedTxHref(`${explorerBaseUrl}/tx/${hash}`);
-        setConfirm(null);
+        setProgressStep("done");
+        toast.success("Sent to vault.");
       } catch (e) {
         const msg = e instanceof Error ? e.message : "Something went wrong.";
         const friendly = /user rejected|denied|rejected the request/i.test(
@@ -192,12 +216,19 @@ export function SendToUrnPanel({
           : /revert|failed/i.test(msg)
             ? "Transaction failed on-chain."
             : msg;
-        toast.error(friendly);
+        if (isWalletUserRejection(e)) {
+          resetProgress();
+          toast.error(friendly);
+        } else {
+          setProgressStep("error");
+          setProgressError(friendly);
+          toast.error(friendly);
+        }
       } finally {
         setBusy(false);
       }
     },
-    [ensureChain, explorerBaseUrl, queryClient],
+    [ensureChain, explorerBaseUrl, queryClient, resetProgress],
   );
 
   const data = portfolioQuery.data;
@@ -437,6 +468,28 @@ export function SendToUrnPanel({
           </Tabs>
         )
       ) : null}
+
+
+      <WithdrawProgressDialog
+        variant="deposit"
+        open={progressOpen}
+        onOpenChange={(v) => {
+          if (!v) {
+            if (progressStep === "done" || progressStep === "error") {
+              resetProgress();
+            }
+            return;
+          }
+          setProgressOpen(true);
+        }}
+        step={progressStep}
+        errorMessage={progressError}
+        onComplete={() => {
+          resetProgress();
+          setConfirm(null);
+          queueMicrotask(() => onSuccessfulTransferDismiss?.());
+        }}
+      />
 
       {lastConfirmedTxHref ? (
         <p className="text-xs text-muted-foreground">

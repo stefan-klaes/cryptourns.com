@@ -1,9 +1,15 @@
-/** Stable, readable timestamps for the activity feed (server-rendered). */
+import { format, formatDistanceToNow } from "date-fns";
+
+/** Relative time for the activity feed (e.g. "2 minutes ago"). */
 export function formatFeedTimestamp(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return new Intl.DateTimeFormat("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(d);
+  return formatDistanceToNow(d, { addSuffix: true });
+}
+
+/** Absolute date/time for tooltips and `title` on `<time>`. */
+export function formatFeedTimestampAbsolute(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return format(d, "PPpp");
 }

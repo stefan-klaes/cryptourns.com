@@ -1,8 +1,8 @@
 "use client";
 
 import { Check, Clock, Loader2, Shield, Sparkles } from "lucide-react";
+import { useMemo } from "react";
 
-import type { MintStep } from "@/hooks/useMint";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,24 +13,40 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
-type MintProgressDialogProps = {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  step: MintStep;
-  errorMessage?: string | null;
-  onComplete: () => void;
-};
+export type WithdrawProgressStep = "verify" | "waiting" | "done" | "error";
 
-const STEPS = [
-  { key: "verify", label: "Verify transaction", icon: Shield },
-  { key: "waiting", label: "Waiting for confirmation", icon: Clock },
-  { key: "done", label: "Minting complete", icon: Sparkles },
-] as const;
+export type VaultTxProgressVariant = "withdraw" | "deposit";
 
 const STEP_ORDER: Record<string, number> = {
   verify: 0,
   waiting: 1,
   done: 2,
+};
+
+const COPY: Record<
+  VaultTxProgressVariant,
+  {
+    progressTitle: string;
+    doneTitle: string;
+    errorTitle: string;
+    doneDescription: string;
+    doneStepLabel: string;
+  }
+> = {
+  withdraw: {
+    progressTitle: "Sending from vault",
+    doneTitle: "Transfer successful",
+    errorTitle: "Transfer failed",
+    doneDescription: "The asset has left the urn vault.",
+    doneStepLabel: "Transfer complete",
+  },
+  deposit: {
+    progressTitle: "Sending to vault",
+    doneTitle: "Transfer successful",
+    errorTitle: "Transfer failed",
+    doneDescription: "The asset is now in this urn's vault.",
+    doneStepLabel: "Deposit complete",
+  },
 };
 
 function StepItem({
@@ -80,13 +96,38 @@ function StepItem({
   );
 }
 
-export function MintProgressDialog({
+type WithdrawProgressDialogProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  step: WithdrawProgressStep;
+  errorMessage?: string | null;
+  onComplete: () => void;
+  variant?: VaultTxProgressVariant;
+};
+
+export function WithdrawProgressDialog({
   open,
   onOpenChange,
   step,
   errorMessage,
   onComplete,
-}: MintProgressDialogProps) {
+  variant = "withdraw",
+}: WithdrawProgressDialogProps) {
+  const copy = COPY[variant];
+  const steps = useMemo(
+    () =>
+      [
+        { key: "verify", label: "Confirm in wallet", icon: Shield },
+        { key: "waiting", label: "Waiting for confirmation", icon: Clock },
+        {
+          key: "done",
+          label: copy.doneStepLabel,
+          icon: Sparkles,
+        },
+      ] as const,
+    [copy.doneStepLabel],
+  );
+
   const currentIndex = STEP_ORDER[step] ?? -1;
 
   const handleOpenChange = (value: boolean) => {
@@ -103,18 +144,18 @@ export function MintProgressDialog({
         <DialogHeader>
           <DialogTitle>
             {step === "done"
-              ? "Mint successful"
+              ? copy.doneTitle
               : step === "error"
-                ? "Mint failed"
-                : "Minting your urn"}
+                ? copy.errorTitle
+                : copy.progressTitle}
           </DialogTitle>
           <DialogDescription>
             {step === "done"
-              ? "Your urn has been minted and is ready to view."
+              ? copy.doneDescription
               : step === "error"
                 ? (errorMessage ??
                   "Something went wrong. You can close this dialog and try again.")
-                : "Please wait while we process your transaction."}
+                : "Please wait while your wallet and the network process this transaction."}
           </DialogDescription>
         </DialogHeader>
 
@@ -128,7 +169,7 @@ export function MintProgressDialog({
           </Button>
         ) : (
           <div className="space-y-4 py-2">
-            {STEPS.map(({ key, label, icon }, i) => {
+            {steps.map(({ key, label, icon }, i) => {
               let state: "pending" | "active" | "complete";
               if (i < currentIndex) state = "complete";
               else if (i === currentIndex)
@@ -153,7 +194,7 @@ export function MintProgressDialog({
 
         {step === "done" && (
           <Button onClick={onComplete} className="w-full">
-            View your urn
+            Done
           </Button>
         )}
       </DialogContent>

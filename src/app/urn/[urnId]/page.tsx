@@ -31,7 +31,7 @@ export default async function UrnPage({ params }: PageProps) {
     notFound();
   }
 
-  const { metadata, tba: tbaAddress, candleCount } = urnData;
+  const { metadata, tba: tbaAddress, candleCount, cracked } = urnData;
 
   let ownerAddress: Address | null = null;
   let ownerEnsName: string | null = null;
@@ -55,6 +55,7 @@ export default async function UrnPage({ params }: PageProps) {
       ownerAddress={ownerAddress}
       ownerEnsName={ownerEnsName}
       ownerExplorerBaseUrl={ownerExplorerBaseUrl}
+      cracked={cracked}
       indexedCoins={indexedAssets.coins}
       indexedNfts={indexedAssets.nfts}
     />
